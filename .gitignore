@@ -1,8 +1,8 @@
 elm-stuff/
 node_modules/
 /docs.json
-/benchmarks/elm.js
-/benchmarks/*.html
+benchmarks/**/elm.js
+benchmarks/**/*.html
 /scripts/out/
 *.xlsx
 !tests/fixtures/**/*.xlsx
