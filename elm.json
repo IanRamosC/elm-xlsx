@@ -1,0 +1,23 @@
+{
+    "type": "package",
+    "name": "ianramosc/elm-xlsx",
+    "summary": "Read and write Excel .xlsx files in pure Elm",
+    "license": "BSD-3-Clause",
+    "version": "1.0.0",
+    "exposed-modules": ["Xlsx.Ref"],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "agu-z/elm-zip": "3.0.1 <= v < 4.0.0",
+        "elm/bytes": "1.0.8 <= v < 2.0.0",
+        "elm/core": "1.0.0 <= v < 2.0.0",
+        "elm/parser": "1.1.0 <= v < 2.0.0",
+        "elm/time": "1.0.0 <= v < 2.0.0",
+        "folkertdev/elm-flate": "2.0.6 <= v < 3.0.0",
+        "justinmimbs/date": "4.1.0 <= v < 5.0.0",
+        "miniBill/elm-xml-parser": "1.0.2 <= v < 2.0.0"
+    },
+    "test-dependencies": {
+        "danfishgold/base64-bytes": "1.1.0 <= v < 2.0.0",
+        "elm-explorations/test": "2.2.0 <= v < 3.0.0"
+    }
+}
