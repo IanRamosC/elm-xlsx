@@ -7,3 +7,5 @@ benchmarks/**/*.html
 *.xlsx
 !tests/fixtures/**/*.xlsx
 .DS_Store
+.venv/
+scripts/**/elm.js
