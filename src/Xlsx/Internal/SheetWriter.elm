@@ -138,13 +138,20 @@ writeRow sheetName row acc =
                     ( Just first, Just last ) ->
                         { acc
                             | rowNumber = acc.rowNumber + 1
-                            , out = "</row>" :: rowAcc.cells ++ (("<row r=\"" ++ String.fromInt acc.rowNumber ++ "\">") :: acc.out)
+                            , out = "</row>" :: rowAcc.cells ++ (rowOpen acc.rowNumber first last :: acc.out)
                             , extent = Just (grow acc.extent { column = first, row = acc.rowNumber } { column = last, row = acc.rowNumber })
                             , state = rowAcc.state
                         }
 
                     _ ->
                         { acc | rowNumber = acc.rowNumber + 1, state = rowAcc.state }
+
+
+{-| `spans` is an optional hint Excel writes to speed up loading.
+-}
+rowOpen : Int -> Int -> Int -> String
+rowOpen rowNumber first last =
+    "<row r=\"" ++ String.fromInt rowNumber ++ "\" spans=\"" ++ String.fromInt first ++ ":" ++ String.fromInt last ++ "\">"
 
 
 grow : Maybe Ref.Range -> Ref.Ref -> Ref.Ref -> Ref.Range

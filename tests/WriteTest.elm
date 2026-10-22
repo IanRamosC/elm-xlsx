@@ -149,7 +149,7 @@ cellTests =
         , test "unstyled blanks are not written" <|
             \_ ->
                 one [ W.blank, W.int 1 ]
-                    |> containsAll sheet1 [ "<row r=\"1\"><c r=\"B1\"><v>1</v></c></row>", "<dimension ref=\"B1\"/>" ]
+                    |> containsAll sheet1 [ "<row r=\"1\" spans=\"2:2\"><c r=\"B1\"><v>1</v></c></row>", "<dimension ref=\"B1\"/>" ]
         ]
 
 
@@ -168,7 +168,7 @@ layout =
                         ]
                     ]
                     |> containsAll sheet1
-                        [ "<row r=\"1\"><c r=\"A1\"><v>1</v></c></row><row r=\"4\"><c r=\"A4\"><v>2</v></c></row><row r=\"6\"><c r=\"A6\"><v>3</v></c></row>"
+                        [ "<row r=\"1\" spans=\"1:1\"><c r=\"A1\"><v>1</v></c></row><row r=\"4\" spans=\"1:1\"><c r=\"A4\"><v>2</v></c></row><row r=\"6\" spans=\"1:1\"><c r=\"A6\"><v>3</v></c></row>"
                         , "<dimension ref=\"A1:A6\"/>"
                         ]
         , test "rowFrom starts at a column" <|
@@ -178,7 +178,7 @@ layout =
         , test "a row of blanks is skipped" <|
             \_ ->
                 W.workbook [ W.sheet "S" [ W.row [ W.blank ], W.row [ W.int 1 ] ] ]
-                    |> contains sheet1 "<sheetData><row r=\"2\">"
+                    |> contains sheet1 "<sheetData><row r=\"2\" spans=\"1:1\">"
         , test "worksheet elements in schema order" <|
             \_ ->
                 case writeOk (one [ W.int 1 ]) |> Result.toMaybe |> Maybe.andThen (part sheet1) of

@@ -25,6 +25,7 @@ core { created } =
         , "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\""
         , " xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\""
         , " xmlns:dcmitype=\"http://purl.org/dc/dcmitype/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">"
+        , "<dc:creator></dc:creator><cp:lastModifiedBy></cp:lastModifiedBy>"
         , "<dcterms:created xsi:type=\"dcterms:W3CDTF\">" ++ stamp ++ "</dcterms:created>"
         , "<dcterms:modified xsi:type=\"dcterms:W3CDTF\">" ++ stamp ++ "</dcterms:modified>"
         , "</cp:coreProperties>"
@@ -55,7 +56,7 @@ app { sheetNames } =
         , "<TitlesOfParts><vt:vector size=\"" ++ count ++ "\" baseType=\"lpstr\">"
         , String.concat (List.map (\name -> "<vt:lpstr>" ++ Escape.text name ++ "</vt:lpstr>") sheetNames)
         , "</vt:vector></TitlesOfParts>"
-        , "<LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc>"
+        , "<Company></Company><LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc>"
         , "<HyperlinksChanged>false</HyperlinksChanged><AppVersion>12.0000</AppVersion>"
         , "</Properties>"
         ]
