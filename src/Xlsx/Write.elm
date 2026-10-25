@@ -2,7 +2,7 @@ module Xlsx.Write exposing
     ( Workbook, workbook, withActiveSheet
     , Sheet, sheet
     , Row, row, rowFrom, emptyRow, emptyRows
-    , Cell, string, float, int, bool, date, dateTime, blank
+    , Cell, string, float, int, bool, date, dateTime, blank, withStyle
     , formula, formulaWithResult, error
     , toBytes, Options, defaultOptions, Compression(..)
     , Problem, problemToString
@@ -52,7 +52,7 @@ out left to right, starting at column A (or the column given to `rowFrom`).
 
 # Cells
 
-@docs Cell, string, float, int, bool, date, dateTime, blank
+@docs Cell, string, float, int, bool, date, dateTime, blank, withStyle
 
 
 ## Formulas and errors
@@ -73,6 +73,7 @@ import Time
 import Xlsx.Date exposing (DateTime)
 import Xlsx.Internal.Model as Model exposing (Cell(..), Row(..), Sheet(..), Value(..), Workbook(..))
 import Xlsx.Internal.Package as Package
+import Xlsx.Style exposing (Style)
 
 
 
@@ -241,6 +242,21 @@ dateTime dt =
 blank : Cell
 blank =
     cell Blank
+
+
+{-| Format a cell. Applying several styles layers them: later ones win for
+the settings they make.
+
+    import Xlsx.Style as Style
+
+    Write.float 1234.5
+        |> Write.withStyle (Style.none |> Style.numberFormat (Style.currency "$" 2))
+        |> Write.withStyle (Style.none |> Style.bold)
+
+-}
+withStyle : Style -> Cell -> Cell
+withStyle (Model.Style style) (Cell c) =
+    Cell { c | style = Model.mergeStyles c.style style }
 
 
 {-| A formula, with or without the leading `=`.

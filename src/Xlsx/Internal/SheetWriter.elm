@@ -21,7 +21,7 @@ threaded through as `State`.
 import Xlsx.Date as XDate
 import Xlsx.Internal.FutureFunctions as FutureFunctions
 import Xlsx.Internal.Limits as Limits
-import Xlsx.Internal.Model exposing (Cell(..), Problem, Row(..), SheetData, Style, Value(..))
+import Xlsx.Internal.Model exposing (Cell(..), Problem, Row(..), SheetData, StyleData, Value(..))
 import Xlsx.Internal.NumFmt as NumFmt
 import Xlsx.Internal.Opc as Opc
 import Xlsx.Internal.SharedStrings as SharedStrings
@@ -226,7 +226,7 @@ addProblem problem state =
 {-| Date cells without a number format get a default one, so they do not show
 up as bare serial numbers.
 -}
-effectiveStyle : Value -> Style -> Style
+effectiveStyle : Value -> StyleData -> StyleData
 effectiveStyle value style =
     case ( style.numberFormat, value ) of
         ( Nothing, DateValue _ ) ->
@@ -242,7 +242,7 @@ effectiveStyle value style =
             style
 
 
-cellXml : String -> Value -> Style -> State -> ( Maybe String, State )
+cellXml : String -> Value -> StyleData -> State -> ( Maybe String, State )
 cellXml ref value style state =
     let
         ( xf, withStyle ) =
