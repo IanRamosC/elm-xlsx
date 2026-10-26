@@ -29,7 +29,7 @@ app.ports.emit.subscribe((sample) => {
   }
   const { base64, ...meta } = sample;
   writeFileSync(join(out, `${sample.name}.xlsx`), Buffer.from(base64, "base64"));
-  writeFileSync(join(out, `${sample.name}.json`), JSON.stringify(meta, null, 2));
+  if (!sample.golden) writeFileSync(join(out, `${sample.name}.json`), JSON.stringify(meta, null, 2));
   console.log(`wrote ${sample.name}.xlsx`);
 });
 

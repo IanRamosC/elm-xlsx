@@ -11,6 +11,7 @@ import Json.Encode as E
 import Time exposing (Month(..))
 import Xlsx.Date as XDate
 import Xlsx.Ref as Ref
+import Xlsx.Style as Style
 import Xlsx.Write as W
 
 
@@ -24,7 +25,7 @@ main : Program () () ()
 main =
     Platform.worker
         { init = \_ -> ( (), Cmd.none )
-        , update = \_ m -> ( m, Cmd.batch (List.map (emitSample >> emit) samples) )
+        , update = \_ m -> ( m, Cmd.batch (List.map (emitSample >> emit) samples ++ List.map (emitGolden >> emit) goldens) )
         , subscriptions = \_ -> start identity
         }
 
@@ -105,6 +106,26 @@ emitSample sample =
         Result.Err problems ->
             E.object
                 [ ( "name", E.string sample.name )
+                , ( "problems", E.list (W.problemToString >> E.string) problems )
+                ]
+
+
+{-| A workbook that rebuilds an XlsxWriter reference file; scripts/golden.py
+compares the two.
+-}
+emitGolden : ( String, W.Workbook ) -> E.Value
+emitGolden ( name, wb ) =
+    case W.toBytes { created = Time.millisToPosix 1794528000000, compression = W.Auto } wb of
+        Ok bytes ->
+            E.object
+                [ ( "name", E.string name )
+                , ( "base64", E.string (Maybe.withDefault "" (Base64.fromBytes bytes)) )
+                , ( "golden", E.bool True )
+                ]
+
+        Result.Err problems ->
+            E.object
+                [ ( "name", E.string name )
                 , ( "problems", E.list (W.problemToString >> E.string) problems )
                 ]
 
@@ -267,3 +288,161 @@ large =
                     )
           )
         ]
+
+
+
+-- GOLDEN WORKBOOKS (same content as XlsxWriter's comparison tests)
+
+
+goldens : List ( String, W.Workbook )
+goldens =
+    [ ( "golden-format01", format01 )
+    , ( "golden-merge_range01", mergeRange01 )
+    , ( "golden-set_column01", setColumn01 )
+    , ( "golden-set_row01", setRow01 )
+    , ( "golden-autofilter01", autofilter01 )
+    , ( "golden-panes01", panes01 )
+    ]
+
+
+format01 : W.Workbook
+format01 =
+    W.workbook
+        [ W.sheet "Sheet1" [ W.row [ W.string "Foo" ], W.row [ W.int 123 ] ]
+        , W.sheet "Data Sheet" []
+        , W.sheet "Sheet3"
+            [ W.emptyRow
+            , W.rowFrom 2 [ W.string "Foo" ]
+            , W.rowFrom 2 [ W.string "Bar" |> W.withStyle (Style.none |> Style.bold) ]
+            , W.rowFrom 3 [ W.int 234 ]
+            ]
+        ]
+
+
+mergeRange01 : W.Workbook
+mergeRange01 =
+    let
+        center =
+            Style.none |> Style.horizontal Style.Center
+    in
+    W.workbook
+        [ W.sheet "Sheet1"
+            [ W.emptyRow
+            , W.rowFrom 2 (List.map (W.withStyle center) [ W.string "Foo", W.blank, W.blank ])
+            ]
+            |> W.merge "B2:D2"
+        ]
+
+
+setColumn01 : W.Workbook
+setColumn01 =
+    let
+        widths =
+            [ ( 2, 0.17 ), ( 3, 0.25 ), ( 4, 0.33 ), ( 5, 0.42 ), ( 6, 0.5 ), ( 7, 0.58 ), ( 8, 0.67 ), ( 9, 0.75 ), ( 10, 0.83 ), ( 11, 0.92 ), ( 12, 1 ), ( 13, 1.14 ), ( 14, 1.29 ), ( 15, 1.43 ), ( 16, 1.57 ), ( 17, 1.71 ), ( 18, 1.86 ), ( 19, 2 ), ( 20, 2.14 ), ( 21, 2.29 ), ( 22, 2.43 ), ( 23, 2.57 ), ( 24, 2.71 ), ( 25, 2.86 ), ( 26, 3 ), ( 28, 8.57 ), ( 29, 8.71 ), ( 30, 8.86 ), ( 31, 9 ), ( 32, 9.14 ), ( 33, 9.29 ) ]
+    in
+    W.workbook
+        [ List.foldl (\( c, w ) s -> W.columnWidth c w s)
+            (W.sheet "Sheet1" [] |> W.columnWidth 1 0.08)
+            widths
+        ]
+
+
+setRow01 : W.Workbook
+setRow01 =
+    let
+        tall h =
+            W.emptyRow |> W.rowHeight h
+    in
+    W.workbook
+        [ W.sheet "Sheet1"
+            [ tall 0.75
+            , tall 1.5
+            , tall 2.25
+            , tall 3
+            , W.emptyRows 7
+            , tall 9
+            , tall 9.75
+            , tall 10.5
+            , tall 11.25
+            , W.emptyRows 3
+            , tall 14.25
+            , W.emptyRow
+            , tall 15.75
+            , tall 16.5
+            ]
+        ]
+
+
+autofilter01 : W.Workbook
+autofilter01 =
+    W.workbook
+        [ W.sheet "Sheet1"
+            [ W.row [ W.string "Region", W.string "Item", W.string "Volume", W.string "Month" ]
+            , W.row [ W.string "East", W.string "Apple", W.float 9000, W.string "July" ]
+            , W.row [ W.string "East", W.string "Apple", W.float 5000, W.string "July" ]
+            , W.row [ W.string "South", W.string "Orange", W.float 9000, W.string "September" ]
+            , W.row [ W.string "North", W.string "Apple", W.float 2000, W.string "November" ]
+            , W.row [ W.string "West", W.string "Apple", W.float 9000, W.string "November" ]
+            , W.row [ W.string "South", W.string "Pear", W.float 7000, W.string "October" ]
+            , W.row [ W.string "North", W.string "Pear", W.float 9000, W.string "August" ]
+            , W.row [ W.string "West", W.string "Orange", W.float 1000, W.string "December" ]
+            , W.row [ W.string "West", W.string "Grape", W.float 1000, W.string "November" ]
+            , W.row [ W.string "South", W.string "Pear", W.float 10000, W.string "April" ]
+            , W.row [ W.string "West", W.string "Grape", W.float 6000, W.string "January" ]
+            , W.row [ W.string "South", W.string "Orange", W.float 3000, W.string "May" ]
+            , W.row [ W.string "North", W.string "Apple", W.float 3000, W.string "December" ]
+            , W.row [ W.string "South", W.string "Apple", W.float 7000, W.string "February" ]
+            , W.row [ W.string "West", W.string "Grape", W.float 1000, W.string "December" ]
+            , W.row [ W.string "East", W.string "Grape", W.float 8000, W.string "February" ]
+            , W.row [ W.string "South", W.string "Grape", W.float 10000, W.string "June" ]
+            , W.row [ W.string "West", W.string "Pear", W.float 7000, W.string "December" ]
+            , W.row [ W.string "South", W.string "Apple", W.float 2000, W.string "October" ]
+            , W.row [ W.string "East", W.string "Grape", W.float 7000, W.string "December" ]
+            , W.row [ W.string "North", W.string "Grape", W.float 6000, W.string "April" ]
+            , W.row [ W.string "East", W.string "Pear", W.float 8000, W.string "February" ]
+            , W.row [ W.string "North", W.string "Apple", W.float 7000, W.string "August" ]
+            , W.row [ W.string "North", W.string "Orange", W.float 7000, W.string "July" ]
+            , W.row [ W.string "North", W.string "Apple", W.float 6000, W.string "June" ]
+            , W.row [ W.string "South", W.string "Grape", W.float 8000, W.string "September" ]
+            , W.row [ W.string "West", W.string "Apple", W.float 3000, W.string "October" ]
+            , W.row [ W.string "South", W.string "Orange", W.float 10000, W.string "November" ]
+            , W.row [ W.string "West", W.string "Grape", W.float 4000, W.string "July" ]
+            , W.row [ W.string "North", W.string "Orange", W.float 5000, W.string "August" ]
+            , W.row [ W.string "East", W.string "Orange", W.float 1000, W.string "November" ]
+            , W.row [ W.string "East", W.string "Orange", W.float 4000, W.string "October" ]
+            , W.row [ W.string "North", W.string "Grape", W.float 5000, W.string "August" ]
+            , W.row [ W.string "East", W.string "Apple", W.float 1000, W.string "December" ]
+            , W.row [ W.string "South", W.string "Apple", W.float 10000, W.string "March" ]
+            , W.row [ W.string "East", W.string "Grape", W.float 7000, W.string "October" ]
+            , W.row [ W.string "West", W.string "Grape", W.float 1000, W.string "September" ]
+            , W.row [ W.string "East", W.string "Grape", W.float 10000, W.string "October" ]
+            , W.row [ W.string "South", W.string "Orange", W.float 8000, W.string "March" ]
+            , W.row [ W.string "North", W.string "Apple", W.float 4000, W.string "July" ]
+            , W.row [ W.string "South", W.string "Orange", W.float 5000, W.string "July" ]
+            , W.row [ W.string "West", W.string "Apple", W.float 4000, W.string "June" ]
+            , W.row [ W.string "East", W.string "Apple", W.float 5000, W.string "April" ]
+            , W.row [ W.string "North", W.string "Pear", W.float 3000, W.string "August" ]
+            , W.row [ W.string "East", W.string "Grape", W.float 9000, W.string "November" ]
+            , W.row [ W.string "North", W.string "Orange", W.float 8000, W.string "October" ]
+            , W.row [ W.string "East", W.string "Apple", W.float 10000, W.string "June" ]
+            , W.row [ W.string "South", W.string "Pear", W.float 1000, W.string "December" ]
+            , W.row [ W.string "North", W.string "Grape", W.float 10000, W.string "July" ]
+            , W.row [ W.string "East", W.string "Grape", W.float 6000, W.string "February" ]
+            ]
+            |> W.autoFilter "A1:D51"
+        ]
+
+
+panes01 : W.Workbook
+panes01 =
+    let
+        foo =
+            [ W.row [ W.string "Foo" ] ]
+
+        frozen n rows columns =
+            W.sheet ("Sheet" ++ String.fromInt n) foo |> W.freeze { rows = rows, columns = columns }
+    in
+    W.workbook
+        ([ frozen 1 1 0, frozen 2 2 0, frozen 3 0 1, frozen 4 0 2, frozen 5 1 1, frozen 6 3 6 ]
+            ++ List.map (\n -> W.sheet ("Sheet" ++ String.fromInt n) foo) (List.range 7 13)
+        )
