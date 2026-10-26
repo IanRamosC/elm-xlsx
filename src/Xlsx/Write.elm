@@ -1,7 +1,9 @@
 module Xlsx.Write exposing
     ( Workbook, workbook, withActiveSheet
     , Sheet, sheet
-    , Row, row, rowFrom, emptyRow, emptyRows
+    , columnWidth, columnWidths, hideColumn, columnStyle
+    , freeze, merge, autoFilter
+    , Row, row, rowFrom, emptyRow, emptyRows, rowHeight
     , Cell, string, float, int, bool, date, dateTime, blank, withStyle
     , formula, formulaWithResult, error
     , toBytes, Options, defaultOptions, Compression(..)
@@ -42,12 +44,24 @@ using the MIME type
 @docs Sheet, sheet
 
 
+## Columns
+
+Columns are numbered from 1 (column A).
+
+@docs columnWidth, columnWidths, hideColumn, columnStyle
+
+
+## Layout
+
+@docs freeze, merge, autoFilter
+
+
 # Rows
 
 Rows are laid out top to bottom, starting at row 1. Each row's cells are laid
 out left to right, starting at column A (or the column given to `rowFrom`).
 
-@docs Row, row, rowFrom, emptyRow, emptyRows
+@docs Row, row, rowFrom, emptyRow, emptyRows, rowHeight
 
 
 # Cells
@@ -69,6 +83,7 @@ out left to right, starting at column A (or the column given to `rowFrom`).
 
 import Bytes exposing (Bytes)
 import Date exposing (Date)
+import Dict
 import Time
 import Xlsx.Date exposing (DateTime)
 import Xlsx.Internal.Model as Model exposing (Cell(..), Row(..), Sheet(..), Value(..), Workbook(..))
@@ -120,7 +135,106 @@ starting or ending with `'`, and unique within the workbook (ignoring case).
 -}
 sheet : String -> List Row -> Sheet
 sheet name rows =
-    Sheet { name = name, rows = rows }
+    Sheet
+        { name = name
+        , rows = rows
+        , columns = Dict.empty
+        , freeze = Nothing
+        , merges = []
+        , autoFilter = Nothing
+        }
+
+
+updateColumn : Int -> (Model.ColumnData -> Model.ColumnData) -> Sheet -> Sheet
+updateColumn index f (Sheet s) =
+    let
+        current =
+            Dict.get index s.columns
+                |> Maybe.withDefault { width = Nothing, hidden = False, style = Nothing }
+    in
+    Sheet { s | columns = Dict.insert index (f current) s.columns }
+
+
+{-| Set a column's width, in the units Excel shows: roughly the number of
+digits that fit with the default font. Excel's default is 8.43; the maximum
+is 255.
+
+    Write.sheet "People" rows
+        |> Write.columnWidth 1 30
+
+-}
+columnWidth : Int -> Float -> Sheet -> Sheet
+columnWidth index width =
+    updateColumn index (\c -> { c | width = Just width })
+
+
+{-| Set the widths of the first columns, starting at column A.
+
+    Write.sheet "People" rows
+        |> Write.columnWidths [ 30, 12, 12 ]
+
+-}
+columnWidths : List Float -> Sheet -> Sheet
+columnWidths widths sheet_ =
+    List.foldl (\( i, w ) acc -> columnWidth (i + 1) w acc) sheet_ (List.indexedMap Tuple.pair widths)
+
+
+{-| Hide a column. Its cells are still in the file.
+-}
+hideColumn : Int -> Sheet -> Sheet
+hideColumn index =
+    updateColumn index (\c -> { c | hidden = True })
+
+
+{-| Give every cell in a column a style. A cell's own style is layered on
+top, so a column can set the number format while a cell makes itself bold.
+Empty cells of the column show the style too (for example, a fill).
+-}
+columnStyle : Int -> Style -> Sheet -> Sheet
+columnStyle index (Model.Style style) =
+    updateColumn index
+        (\c ->
+            { c
+                | style =
+                    Just
+                        (case c.style of
+                            Just existing ->
+                                Model.mergeStyles existing style
+
+                            Nothing ->
+                                style
+                        )
+            }
+        )
+
+
+{-| Keep the first rows and/or columns in place while scrolling.
+
+    -- freeze the header row
+    Write.freeze { rows = 1, columns = 0 }
+
+-}
+freeze : { rows : Int, columns : Int } -> Sheet -> Sheet
+freeze panes (Sheet s) =
+    Sheet { s | freeze = Just panes }
+
+
+{-| Merge a range of cells into one, such as `"A1:D1"` for a title across
+four columns. Only the top-left cell's value is kept; style that cell to
+center the title. `toBytes` reports invalid or overlapping ranges.
+-}
+merge : String -> Sheet -> Sheet
+merge range (Sheet s) =
+    Sheet { s | merges = s.merges ++ [ range ] }
+
+
+{-| Add filter buttons to the header row of a range, such as `"A1:D100"`.
+Include the header row and all the data rows. A sheet has at most one
+autofilter.
+-}
+autoFilter : String -> Sheet -> Sheet
+autoFilter range (Sheet s) =
+    Sheet { s | autoFilter = Just range }
 
 
 
@@ -137,7 +251,7 @@ type alias Row =
 -}
 row : List Cell -> Row
 row cells =
-    Row { startColumn = 1, cells = cells }
+    Row { startColumn = 1, cells = cells, height = Nothing }
 
 
 {-| A row whose first cell goes in the given column (1 is A, 3 is C).
@@ -148,14 +262,14 @@ row cells =
 -}
 rowFrom : Int -> List Cell -> Row
 rowFrom startColumn cells =
-    Row { startColumn = startColumn, cells = cells }
+    Row { startColumn = startColumn, cells = cells, height = Nothing }
 
 
 {-| A row with nothing in it.
 -}
 emptyRow : Row
 emptyRow =
-    EmptyRows 1
+    EmptyRows 1 Nothing
 
 
 {-| Several empty rows.
@@ -169,7 +283,24 @@ emptyRow =
 -}
 emptyRows : Int -> Row
 emptyRows n =
-    EmptyRows n
+    EmptyRows n Nothing
+
+
+{-| Set a row's height in points (Excel's default is 15; the maximum is 409).
+On `emptyRows`, every one of the empty rows gets the height.
+
+    Write.row [ Write.string "Big title" ]
+        |> Write.rowHeight 30
+
+-}
+rowHeight : Float -> Row -> Row
+rowHeight height r =
+    case r of
+        Row data ->
+            Row { data | height = Just height }
+
+        EmptyRows n _ ->
+            EmptyRows n (Just height)
 
 
 

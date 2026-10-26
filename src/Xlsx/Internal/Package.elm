@@ -17,6 +17,7 @@ import Xlsx.Internal.SharedStrings as SharedStrings
 import Xlsx.Internal.SheetWriter as SheetWriter
 import Xlsx.Internal.Styles as Styles
 import Xlsx.Internal.Xml.Escape as Escape
+import Xlsx.Ref as Ref
 import Zip
 import Zip.Entry
 
@@ -65,7 +66,20 @@ write options workbook =
             workbookProblems ++ List.reverse state.problems
     in
     if List.isEmpty problems then
-        Ok (zip options (parts { names = names, activeIndex = activeIndex, sheetXmls = sheetXmls, state = state, created = options.created }))
+        Ok
+            (zip options
+                (parts
+                    { names = names
+                    , activeIndex = activeIndex
+                    , sheetXmls = sheetXmls
+                    , state = state
+                    , created = options.created
+                    , filters =
+                        List.indexedMap (\i sheet -> ( i, sheet.name, sheet.autoFilter |> Maybe.andThen Ref.rangeFromString )) sheets
+                            |> List.filterMap (\( i, name, r ) -> Maybe.map (\range -> ( i, name, range )) r)
+                    }
+                )
+            )
 
     else
         Err problems
@@ -77,6 +91,7 @@ type alias PartsInput =
     , sheetXmls : List String
     , state : SheetWriter.State
     , created : Time.Posix
+    , filters : List ( Int, String, Ref.Range )
     }
 
 
@@ -174,6 +189,7 @@ workbookXml input =
                 input.names
             )
         , "</sheets>"
+        , definedNamesXml input.filters
         , if input.state.needsRecalc then
             "<calcPr calcId=\"124519\" fullCalcOnLoad=\"1\"/>"
 
@@ -181,6 +197,43 @@ workbookXml input =
             "<calcPr calcId=\"124519\"/>"
         , "</workbook>"
         ]
+
+
+{-| Each autofilter needs a hidden, sheet-local `_xlnm._FilterDatabase` name
+pointing at its range.
+-}
+definedNamesXml : List ( Int, String, Ref.Range ) -> String
+definedNamesXml filters =
+    if List.isEmpty filters then
+        ""
+
+    else
+        "<definedNames>"
+            ++ String.concat
+                (List.map
+                    (\( index, name, r ) ->
+                        "<definedName name=\"_xlnm._FilterDatabase\" localSheetId=\""
+                            ++ String.fromInt index
+                            ++ "\" hidden=\"1\">"
+                            ++ Escape.text (Ref.quoteSheetName name ++ "!" ++ absolute r)
+                            ++ "</definedName>"
+                    )
+                    filters
+                )
+            ++ "</definedNames>"
+
+
+absolute : Ref.Range -> String
+absolute r =
+    let
+        anchored ref =
+            "$" ++ Ref.columnName ref.column ++ "$" ++ String.fromInt ref.row
+    in
+    if r.start == r.end then
+        anchored r.start
+
+    else
+        anchored r.start ++ ":" ++ anchored r.end
 
 
 zip : { created : Time.Posix, compression : Compression } -> List ( String, String ) -> Bytes

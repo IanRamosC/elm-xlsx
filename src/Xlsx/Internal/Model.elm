@@ -1,6 +1,6 @@
 module Xlsx.Internal.Model exposing
     ( Workbook(..), WorkbookData
-    , Sheet(..), SheetData
+    , Sheet(..), SheetData, ColumnData
     , Row(..), RowData
     , Cell(..), CellData, Value(..)
     , Style(..), StyleData, Border, defaultStyle, mergeStyles
@@ -11,7 +11,7 @@ module Xlsx.Internal.Model exposing
 module so several public modules can share it.
 
 @docs Workbook, WorkbookData
-@docs Sheet, SheetData
+@docs Sheet, SheetData, ColumnData
 @docs Row, RowData
 @docs Cell, CellData, Value
 @docs Style, StyleData, Border, defaultStyle, mergeStyles
@@ -20,6 +20,7 @@ module so several public modules can share it.
 -}
 
 import Date exposing (Date)
+import Dict exposing (Dict)
 import Xlsx.Date exposing (DateTime)
 
 
@@ -44,6 +45,19 @@ type Sheet
 type alias SheetData =
     { name : String
     , rows : List Row
+    , columns : Dict Int ColumnData
+    , freeze : Maybe { rows : Int, columns : Int }
+    , merges : List String
+    , autoFilter : Maybe String
+    }
+
+
+{-| Settings for one column (1-based key in `SheetData.columns`).
+-}
+type alias ColumnData =
+    { width : Maybe Float
+    , hidden : Bool
+    , style : Maybe StyleData
     }
 
 
@@ -51,7 +65,7 @@ type alias SheetData =
 -}
 type Row
     = Row RowData
-    | EmptyRows Int
+    | EmptyRows Int (Maybe Float)
 
 
 {-| `startColumn` is 1-based.
@@ -59,6 +73,7 @@ type Row
 type alias RowData =
     { startColumn : Int
     , cells : List Cell
+    , height : Maybe Float
     }
 
 
