@@ -6,6 +6,7 @@
     "version": "1.0.0",
     "exposed-modules": [
         "Xlsx.Write",
+        "Xlsx.Encode",
         "Xlsx.Style",
         "Xlsx.Date",
         "Xlsx.Ref"

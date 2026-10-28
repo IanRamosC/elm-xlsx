@@ -21,8 +21,8 @@ module Xlsx.Write exposing
             [ Write.sheet "People"
                 [ Write.row [ Write.string "Name", Write.string "Born" ]
                 , Write.row
-                    [ Write.string "Ada Lovelace"
-                    , Write.date (Date.fromCalendarDate 1815 Dec 10)
+                    [ Write.string "Grace Hopper"
+                    , Write.date (Date.fromCalendarDate 1906 Dec 9)
                     ]
                 ]
             ]
