@@ -10,6 +10,7 @@ import Date exposing (Date)
 import Json.Encode as E
 import Time exposing (Month(..))
 import Xlsx.Date as XDate
+import Xlsx.Encode as Encode
 import Xlsx.Ref as Ref
 import Xlsx.Style as Style
 import Xlsx.Write as W
@@ -302,7 +303,50 @@ goldens =
     , ( "golden-set_row01", setRow01 )
     , ( "golden-autofilter01", autofilter01 )
     , ( "golden-panes01", panes01 )
+    , ( "showcase", showcase )
     ]
+
+
+{-| Every styling and layout feature, for checking by eye in Excel, Numbers
+and LibreOffice.
+-}
+showcase : W.Workbook
+showcase =
+    let
+        title =
+            Style.none |> Style.bold |> Style.fontSize 16 |> Style.horizontal Style.Center |> Style.vertical Style.Middle |> Style.fill (Style.rgb 221 235 247)
+
+        boxed =
+            Style.none |> Style.border Style.Thin Style.gray
+
+        orders =
+            [ { id = 1001, customer = "Grace Hopper", total = 1250.5, placed = Date.fromCalendarDate 2026 Nov 2, paid = True }
+            , { id = 1002, customer = "Alan Turing", total = 89.99, placed = Date.fromCalendarDate 2026 Nov 7, paid = False }
+            , { id = 1003, customer = "Katherine Johnson", total = 15000, placed = Date.fromCalendarDate 2026 Nov 13, paid = True }
+            ]
+    in
+    W.workbook
+        [ W.sheet "Styles"
+            [ W.row ((W.string "Style showcase" |> W.withStyle title) :: List.repeat 3 (W.blank |> W.withStyle title))
+                |> W.rowHeight 32
+            , W.emptyRow
+            , W.row [ W.string "Bold" |> W.withStyle (Style.none |> Style.bold), W.string "Italic" |> W.withStyle (Style.none |> Style.italic), W.string "Underline" |> W.withStyle (Style.none |> Style.underline), W.string "Strike" |> W.withStyle (Style.none |> Style.strikethrough) ]
+            , W.row [ W.string "Red" |> W.withStyle (Style.none |> Style.fontColor Style.red), W.string "Arial 14" |> W.withStyle (Style.none |> Style.fontName "Arial" |> Style.fontSize 14), W.string "Yellow fill" |> W.withStyle (Style.none |> Style.fill Style.yellow), W.string "Boxed" |> W.withStyle boxed ]
+            , W.row [ W.float 1234.5 |> W.withStyle (Style.none |> Style.numberFormat (Style.currency "$" 2)), W.float 0.256 |> W.withStyle (Style.none |> Style.numberFormat (Style.percent 1)), W.float 1234567.891 |> W.withStyle (Style.none |> Style.numberFormat (Style.thousands 2)), W.float 0.000123 |> W.withStyle (Style.none |> Style.numberFormat (Style.scientific 2)) ]
+            , W.row [ W.string "Wrapped text that is long enough to need several lines" |> W.withStyle (Style.none |> Style.wrap), W.string "Right" |> W.withStyle (Style.none |> Style.horizontal Style.Right), W.string "Rotated" |> W.withStyle (Style.none |> Style.rotate 45), W.string "Indented" |> W.withStyle (Style.none |> Style.indent 2) ]
+                |> W.rowHeight 60
+            ]
+            |> W.merge "A1:D1"
+            |> W.columnWidths [ 22, 16, 16, 16 ]
+        , Encode.table "Orders"
+            [ Encode.int "Order" .id
+            , Encode.string "Customer" .customer
+            , Encode.float "Total" .total |> Encode.style (Style.none |> Style.numberFormat (Style.currency "$" 2))
+            , Encode.date "Placed" .placed
+            , Encode.bool "Paid" .paid
+            ]
+            orders
+        ]
 
 
 format01 : W.Workbook
