@@ -3,6 +3,7 @@ module Xlsx.Internal.Opc exposing
     , ContentTypes, contentTypes
     , Relationship, relationships
     , relType, contentType
+    , parseRelationships, relsPathFor, resolveTarget, isRelType
     )
 
 {-| Open Packaging Conventions: the `[Content_Types].xml` part and `.rels`
@@ -13,9 +14,16 @@ relationship parts that tie the package together.
 @docs Relationship, relationships
 @docs relType, contentType
 
+
+# Reading
+
+@docs parseRelationships, relsPathFor, resolveTarget, isRelType
+
 -}
 
+import Url
 import Xlsx.Internal.Xml.Escape as Escape
+import Xlsx.Internal.Xml.Tree as Tree
 
 
 {-| -}
@@ -125,3 +133,125 @@ contentType =
     , coreProperties = "application/vnd.openxmlformats-package.core-properties+xml"
     , extendedProperties = "application/vnd.openxmlformats-officedocument.extended-properties+xml"
     }
+
+
+
+-- READING
+
+
+{-| The relationships in a `.rels` part.
+-}
+parseRelationships : String -> Result String (List Relationship)
+parseRelationships xml =
+    Tree.parse xml
+        |> Result.map
+            (\root ->
+                Tree.children "Relationship" root
+                    |> List.filterMap
+                        (\rel ->
+                            Maybe.map3
+                                (\id type_ target ->
+                                    { id = id
+                                    , type_ = type_
+                                    , target = target
+                                    , external = Tree.attribute "TargetMode" rel == Just "External"
+                                    }
+                                )
+                                (Tree.attribute "Id" rel)
+                                (Tree.attribute "Type" rel)
+                                (Tree.attribute "Target" rel)
+                        )
+            )
+
+
+{-| The `.rels` part that holds a part's relationships:
+`xl/workbook.xml` → `xl/_rels/workbook.xml.rels`, and the package itself
+(`""`) → `_rels/.rels`.
+-}
+relsPathFor : String -> String
+relsPathFor part =
+    let
+        ( dir, file ) =
+            splitPath part
+    in
+    joinPath [ dir, "_rels", file ++ ".rels" ]
+
+
+{-| Resolve a relationship target against the part it comes from. Targets are
+relative to the source part's folder unless they start with `/`; `..` and
+percent-encoding are handled. The result has no leading slash.
+
+    resolveTarget "xl/workbook.xml" "worksheets/sheet1.xml" == "xl/worksheets/sheet1.xml"
+
+    resolveTarget "xl/workbook.xml" "/xl/styles.xml" == "xl/styles.xml"
+
+    resolveTarget "xl/worksheets/sheet1.xml" "../drawings/drawing1.xml" == "xl/drawings/drawing1.xml"
+
+-}
+resolveTarget : String -> String -> String
+resolveTarget source target =
+    let
+        decoded =
+            Url.percentDecode target |> Maybe.withDefault target
+
+        withoutFragment =
+            case String.split "#" decoded of
+                first :: _ ->
+                    first
+
+                [] ->
+                    decoded
+
+        segments =
+            if String.startsWith "/" withoutFragment then
+                String.split "/" withoutFragment
+
+            else
+                String.split "/" (Tuple.first (splitPath source)) ++ String.split "/" withoutFragment
+    in
+    segments
+        |> List.foldl
+            (\segment acc ->
+                case segment of
+                    "" ->
+                        acc
+
+                    "." ->
+                        acc
+
+                    ".." ->
+                        List.drop 1 acc
+
+                    _ ->
+                        segment :: acc
+            )
+            []
+        |> List.reverse
+        |> String.join "/"
+
+
+{-| Whether a relationship has a type, compared by its last path segment so
+Transitional (`schemas.openxmlformats.org/...`) and Strict
+(`purl.oclc.org/ooxml/...`) types both match.
+
+    isRelType "worksheet" "http://purl.oclc.org/ooxml/officeDocument/relationships/worksheet" == True
+
+-}
+isRelType : String -> String -> Bool
+isRelType kind type_ =
+    String.endsWith ("/" ++ kind) type_
+
+
+splitPath : String -> ( String, String )
+splitPath path =
+    case List.reverse (String.split "/" path) of
+        file :: reversedDir ->
+            ( String.join "/" (List.reverse reversedDir), file )
+
+        [] ->
+            ( "", path )
+
+
+joinPath : List String -> String
+joinPath parts =
+    String.join "/" (List.filter (not << String.isEmpty) parts)
