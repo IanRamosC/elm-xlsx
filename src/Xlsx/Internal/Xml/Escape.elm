@@ -2,6 +2,7 @@ module Xlsx.Internal.Xml.Escape exposing
     ( text, attribute
     , encodeXString, decodeXString
     , needsPreserve
+    , unescape
     )
 
 {-| Escaping for the XML we write.
@@ -17,6 +18,7 @@ Two layers are involved for cell text:
 @docs text, attribute
 @docs encodeXString, decodeXString
 @docs needsPreserve
+@docs unescape
 
 -}
 
@@ -207,3 +209,87 @@ hexToInt =
                 acc
         )
         (Just 0)
+
+
+{-| Decode XML character references and the five predefined entities, for
+text read without an XML parser.
+
+    unescape "a &amp; b &lt;c&gt; &#65;&#x42;" == "a & b <c> AB"
+
+Unknown entities are left as they are.
+
+-}
+unescape : String -> String
+unescape s =
+    if String.contains "&" s then
+        case String.split "&" s of
+            first :: rest ->
+                String.concat (first :: List.map unescapeChunk rest)
+
+            [] ->
+                s
+
+    else
+        s
+
+
+{-| A chunk that followed an `&`: decode the entity at its start.
+-}
+unescapeChunk : String -> String
+unescapeChunk chunk =
+    case String.indexes ";" (String.left 12 chunk) of
+        end :: _ ->
+            let
+                entity =
+                    String.left end chunk
+
+                rest =
+                    String.dropLeft (end + 1) chunk
+            in
+            case entityChar entity of
+                Just decoded ->
+                    decoded ++ rest
+
+                Nothing ->
+                    "&" ++ chunk
+
+        [] ->
+            "&" ++ chunk
+
+
+entityChar : String -> Maybe String
+entityChar entity =
+    case entity of
+        "amp" ->
+            Just "&"
+
+        "lt" ->
+            Just "<"
+
+        "gt" ->
+            Just ">"
+
+        "quot" ->
+            Just "\""
+
+        "apos" ->
+            Just "'"
+
+        _ ->
+            if String.startsWith "#x" entity || String.startsWith "#X" entity then
+                hexToInt (String.toList (String.dropLeft 2 entity)) |> Maybe.andThen codePoint
+
+            else if String.startsWith "#" entity then
+                String.toInt (String.dropLeft 1 entity) |> Maybe.andThen codePoint
+
+            else
+                Nothing
+
+
+codePoint : Int -> Maybe String
+codePoint code =
+    if code > 0 && code <= 0x0010FFFF then
+        Just (String.fromChar (Char.fromCode code))
+
+    else
+        Nothing

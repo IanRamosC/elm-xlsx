@@ -37,6 +37,13 @@ suite =
             , fuzz (Fuzz.oneOfValues [ "_x0001_", "_x005F_", "x", "_", "a\u{0002}", "_x12", "AB_" ] |> Fuzz.listOfLengthBetween 0 8 |> Fuzz.map String.concat) "decode undoes encode on tricky input" <|
                 \s -> Expect.equal s (Escape.decodeXString (Escape.encodeXString s))
             ]
+        , describe "unescape"
+            [ test "predefined entities" <| \_ -> Expect.equal "a & b <c> \"'" (Escape.unescape "a &amp; b &lt;c&gt; &quot;&apos;")
+            , test "character references" <| \_ -> Expect.equal "AB€😀" (Escape.unescape "&#65;&#x42;&#8364;&#x1F600;")
+            , test "unknown entity kept" <| \_ -> Expect.equal "&nbsp; &" (Escape.unescape "&nbsp; &")
+            , test "double escaping decodes once" <| \_ -> Expect.equal "&amp;" (Escape.unescape "&amp;amp;")
+            , fuzz Fuzz.string "undoes text escaping" <| \s -> Expect.equal s (Escape.unescape (Escape.text s))
+            ]
         , describe "needsPreserve"
             [ test "plain" <| \_ -> Expect.equal False (Escape.needsPreserve "abc")
             , test "empty" <| \_ -> Expect.equal False (Escape.needsPreserve "")
