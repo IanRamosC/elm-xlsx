@@ -144,11 +144,13 @@ whitespace, or a line break or tab anywhere.
 -}
 needsPreserve : String -> Bool
 needsPreserve s =
-    case ( String.uncons s, String.right 1 s ) of
-        ( Just ( first, _ ), last ) ->
-            isSpace first || String.any isSpace last || String.any (\c -> c == '\n' || c == '\t' || c == '\u{000D}') s
+    case String.uncons s of
+        Just ( first, _ ) ->
+            -- `String.right 1` would split an emoji's surrogate pair, and
+            -- elm/core's `String.any` never terminates on a lone surrogate.
+            isSpace first || String.endsWith " " s || String.any (\c -> c == '\n' || c == '\t' || c == '\u{000D}') s
 
-        ( Nothing, _ ) ->
+        Nothing ->
             False
 
 

@@ -51,5 +51,7 @@ suite =
             , test "trailing space" <| \_ -> Expect.equal True (Escape.needsPreserve "abc ")
             , test "inner newline" <| \_ -> Expect.equal True (Escape.needsPreserve "a\nb")
             , test "inner space" <| \_ -> Expect.equal False (Escape.needsPreserve "a b")
+            , test "ends with an emoji (regression: used to hang)" <| \_ -> Expect.equal False (Escape.needsPreserve "rainbow 🌈")
+            , test "emoji then trailing space" <| \_ -> Expect.equal True (Escape.needsPreserve "🌈 ")
             ]
         ]
