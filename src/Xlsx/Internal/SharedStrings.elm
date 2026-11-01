@@ -1,6 +1,7 @@
 module Xlsx.Internal.SharedStrings exposing
     ( Table, empty, insert, isEmpty
     , toXml
+    , parse
     )
 
 {-| The shared strings table (`xl/sharedStrings.xml`). Every text cell points
@@ -9,10 +10,17 @@ at an entry by index, and repeated strings are stored once.
 @docs Table, empty, insert, isEmpty
 @docs toXml
 
+
+# Reading
+
+@docs parse
+
 -}
 
+import Array exposing (Array)
 import Dict exposing (Dict)
 import Xlsx.Internal.Xml.Escape as Escape
+import Xlsx.Internal.Xml.Scan as Scan
 
 
 {-| -}
@@ -78,3 +86,21 @@ item s =
 
     else
         "<si><t>" ++ Escape.text (Escape.encodeXString s) ++ "</t></si>"
+
+
+
+-- READING
+
+
+{-| The strings of an `sst` part, in order. Rich text runs are joined into
+plain text; phonetic guides are left out.
+-}
+parse : String -> Array String
+parse xml =
+    let
+        prefix =
+            Scan.rootPrefix xml
+    in
+    Scan.elements prefix "si" xml
+        |> List.map (Scan.textRuns prefix)
+        |> Array.fromList
