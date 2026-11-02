@@ -1,6 +1,7 @@
 module Xlsx.Internal.NumFmt exposing
     ( builtinId, builtinCode
     , isDateFormat, isDateFormatId
+    , Kind(..), classify, classifyId
     , firstCustomId, defaultDate, defaultDateTime
     )
 
@@ -8,6 +9,7 @@ module Xlsx.Internal.NumFmt exposing
 
 @docs builtinId, builtinCode
 @docs isDateFormat, isDateFormatId
+@docs Kind, classify, classifyId
 @docs firstCustomId, defaultDate, defaultDateTime
 
 -}
@@ -122,10 +124,83 @@ isDateFormat code =
         False
 
     else
-        stripFormat (String.toList code) []
-            |> String.fromList
-            |> String.toLower
-            |> String.any (\c -> c == 'y' || c == 'm' || c == 'd' || c == 'h' || c == 's')
+        significant code
+            |> String.any (\c -> c == 'y' || c == 'm' || c == 'd' || c == 'h' || c == 's' || c == elapsedMarker)
+
+
+{-| How a number with this format should be read.
+
+  - `Date`: shows a date only (`yyyy-mm-dd`).
+  - `DateTime`: shows a time, with or without a date (`h:mm`, `m/d/yy h:mm`).
+  - `Elapsed`: a duration (`[h]:mm:ss`); the number is a count of days, not
+    a point in time.
+  - `Plain`: anything else.
+
+-}
+type Kind
+    = Plain
+    | Date
+    | DateTime
+    | Elapsed
+
+
+{-| -}
+classify : String -> Kind
+classify code =
+    if String.toLower code == "general" then
+        Plain
+
+    else
+        let
+            chars =
+                significant code
+
+            has c =
+                String.any ((==) c) chars
+        in
+        if has elapsedMarker then
+            Elapsed
+
+        else if has 'h' || has 's' || String.contains "am/pm" chars || String.contains "a/p" chars then
+            DateTime
+
+        else if has 'y' || has 'm' || has 'd' then
+            Date
+
+        else
+            Plain
+
+
+{-| The kind of a built-in format id. The East Asian ids (27–36, 50–58) have
+no fixed code; they are read as dates.
+-}
+classifyId : Int -> Kind
+classifyId id =
+    case builtinCode id of
+        Just code ->
+            classify code
+
+        Nothing ->
+            if isDateFormatId id then
+                Date
+
+            else
+                Plain
+
+
+{-| The lowercased characters of a format's first section that can carry
+meaning for dates, with elapsed-time blocks replaced by a marker.
+-}
+significant : String -> String
+significant code =
+    stripFormat (String.toList code) []
+        |> String.fromList
+        |> String.toLower
+
+
+elapsedMarker : Char
+elapsedMarker =
+    '!'
 
 
 {-| Keep only the characters that matter for date detection, stopping at the
@@ -161,7 +236,7 @@ stripFormat chars acc =
                     String.toLower (String.fromList inside)
             in
             if isElapsed lowered then
-                stripFormat (dropAfter ']' rest) ('h' :: acc)
+                stripFormat (dropAfter ']' rest) (elapsedMarker :: acc)
 
             else
                 stripFormat (dropAfter ']' rest) acc

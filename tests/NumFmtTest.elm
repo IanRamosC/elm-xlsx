@@ -54,6 +54,16 @@ suite =
             , test "number formats" <|
                 \_ -> Expect.equal [] (List.filter NumFmt.isDateFormat numberFormats)
             ]
+        , describe "classify"
+            [ test "kinds" <|
+                \_ ->
+                    List.map NumFmt.classify [ "General", "0.00", "yyyy-mm-dd", "d-mmm-yy", "m/d/yy h:mm", "h:mm AM/PM", "mm:ss", "[h]:mm:ss", "[$-409]mmmm d, yyyy", "[Red]0.00", "0.00\"d\"", "hh:mm;@" ]
+                        |> Expect.equal [ NumFmt.Plain, NumFmt.Plain, NumFmt.Date, NumFmt.Date, NumFmt.DateTime, NumFmt.DateTime, NumFmt.DateTime, NumFmt.Elapsed, NumFmt.Date, NumFmt.Plain, NumFmt.Plain, NumFmt.DateTime ]
+            , test "ids" <|
+                \_ ->
+                    List.map NumFmt.classifyId [ 0, 14, 22, 46, 30, 49 ]
+                        |> Expect.equal [ NumFmt.Plain, NumFmt.Date, NumFmt.DateTime, NumFmt.Elapsed, NumFmt.Date, NumFmt.Plain ]
+            ]
         , describe "isDateFormatId"
             [ test "built-in date ids" <|
                 \_ -> Expect.equal True (List.all NumFmt.isDateFormatId [ 14, 15, 16, 17, 18, 19, 20, 21, 22, 45, 46, 47, 27, 36, 50, 58 ])
