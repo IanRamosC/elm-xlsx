@@ -1,8 +1,9 @@
 module FutureFunctionsTest exposing (suite)
 
 import Expect
-import Test exposing (Test, describe, test)
-import Xlsx.Internal.FutureFunctions exposing (addPrefixes)
+import Fuzz
+import Test exposing (Test, describe, fuzz, test)
+import Xlsx.Internal.FutureFunctions as FutureFunctions exposing (addPrefixes)
 
 
 suite : Test
@@ -30,4 +31,10 @@ suite =
             \_ -> Expect.equal "_xlfn._xlws.FILTER(A:A,B:B>0)" (addPrefixes "FILTER(A:A,B:B>0)")
         , test "LET with spaces" <|
             \_ -> Expect.equal "_xlfn.LET(x, 1, x + 1)" (addPrefixes "LET(x, 1, x + 1)")
+        , describe "removePrefixes"
+            [ test "all prefixes" <| \_ -> Expect.equal "SORT(A1:A9)+LAMBDA(x,x+1)(XLOOKUP(1,A:A,B:B))" (FutureFunctions.removePrefixes "_xlfn._xlws.SORT(A1:A9)+_xlfn.LAMBDA(_xlpm.x,_xlpm.x+1)(_xlfn.XLOOKUP(1,A:A,B:B))")
+            , test "string literals kept" <| \_ -> Expect.equal "\"_xlfn.\"&IFS(1,2)" (FutureFunctions.removePrefixes "\"_xlfn.\"&_xlfn.IFS(1,2)")
+            , fuzz (Fuzz.oneOfValues [ "XLOOKUP(A1,B:B,C:C)", "FILTER(A:A,B:B>1)", "SUM(A1:A3)", "IFS(A1>1,\"x\",TRUE,\"y\")" ]) "undoes addPrefixes" <|
+                \f -> Expect.equal f (FutureFunctions.removePrefixes (FutureFunctions.addPrefixes f))
+            ]
         ]

@@ -1,11 +1,11 @@
-module Xlsx.Internal.FutureFunctions exposing (addPrefixes)
+module Xlsx.Internal.FutureFunctions exposing (addPrefixes, removePrefixes)
 
 {-| Functions added to Excel after 2007 are stored in the file with a
 `_xlfn.` prefix (`_xlfn.XLOOKUP(...)`). Excel adds the prefix itself when you
 type a formula, but files written by other programs must add it, or Excel shows
 `#NAME?`.
 
-@docs addPrefixes
+@docs addPrefixes, removePrefixes
 
 -}
 
@@ -309,3 +309,32 @@ futureFunctions =
         , "XOR"
         , "Z.TEST"
         ]
+
+
+{-| Remove the storage prefixes (`_xlfn.`, `_xlws.`, `_xlpm.` for LAMBDA
+parameters) so a formula reads as it is typed. Text in string literals is
+left alone.
+
+    removePrefixes "_xlfn._xlws.SORT(A1:A9)" == "SORT(A1:A9)"
+
+-}
+removePrefixes : String -> String
+removePrefixes formula =
+    if String.contains "_xl" formula then
+        formula
+            |> String.split "\""
+            |> List.indexedMap
+                (\i part ->
+                    if modBy 2 i == 0 then
+                        part
+                            |> String.replace "_xlfn." ""
+                            |> String.replace "_xlws." ""
+                            |> String.replace "_xlpm." ""
+
+                    else
+                        part
+                )
+            |> String.join "\""
+
+    else
+        formula
