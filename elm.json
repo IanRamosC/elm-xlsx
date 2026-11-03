@@ -7,6 +7,7 @@
     "exposed-modules": [
         "Xlsx.Write",
         "Xlsx.Encode",
+        "Xlsx.Read",
         "Xlsx.Style",
         "Xlsx.Date",
         "Xlsx.Ref"
