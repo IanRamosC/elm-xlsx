@@ -83,6 +83,16 @@ suite =
                 SheetReader.read context "<worksheet><sheetData/></worksheet>"
                     |> (\c -> ( c.cells, c.lastRow, c.lastColumn ))
                     |> Expect.equal ( [], 0, 0 )
+        , test "stack safe on 200k cells" <|
+            \_ ->
+                let
+                    row r =
+                        "<row r=\"" ++ String.fromInt r ++ "\">" ++ String.repeat 100 "<c><v>1</v></c>" ++ "</row>"
+
+                    content =
+                        SheetReader.read context (wrap (String.concat (List.map row (List.range 1 2000))))
+                in
+                Expect.equal ( List.length content.cells, content.lastRow, content.lastColumn ) ( 200000, 2000, 100 )
         , test "shared string index out of range is empty" <|
             \_ -> values (wrap "<row r=\"1\"><c r=\"A1\" t=\"s\"><v>99</v></c></row>") |> Expect.equal []
         ]
