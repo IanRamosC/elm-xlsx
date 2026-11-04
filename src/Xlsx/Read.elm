@@ -200,11 +200,14 @@ workbookPath archive =
 buildWorkbook : Archive -> String -> ( Tree.Element, List Opc.Relationship ) -> Result Error Workbook
 buildWorkbook archive path ( root, rels ) =
     let
-        target kind =
+        -- the related part, or the usual file next to the workbook when the
+        -- relationship is missing (as calamine does)
+        target kind defaultName =
             rels
                 |> List.filter (\r -> Opc.isRelType kind r.type_ && not r.external)
                 |> List.head
                 |> Maybe.map (.target >> Opc.resolveTarget path)
+                |> Maybe.withDefault (Opc.resolveTarget path defaultName)
 
         byId =
             Dict.fromList (List.map (\r -> ( r.id, r )) rels)
@@ -236,8 +239,8 @@ buildWorkbook archive path ( root, rels ) =
                 , formats = formats
                 }
         )
-        (optionalPart (target "sharedStrings") archive (SharedStrings.parse >> Ok) Array.empty)
-        (optionalPart (target "styles") archive StylesReader.parse Array.empty)
+        (optionalPart (target "sharedStrings" "sharedStrings.xml") archive (SharedStrings.parse >> Ok) Array.empty)
+        (optionalPart (target "styles" "styles.xml") archive StylesReader.parse Array.empty)
 
 
 sheetEntry : String -> Dict String Opc.Relationship -> Tree.Element -> Maybe SheetEntry
@@ -286,26 +289,21 @@ sheetEntry workbookPart byId el =
             )
 
 
-optionalPart : Maybe String -> Archive -> (String -> Result String a) -> a -> Result Error a
-optionalPart maybePath archive parse default =
-    case maybePath of
-        Nothing ->
+optionalPart : String -> Archive -> (String -> Result String a) -> a -> Result Error a
+optionalPart path archive parse default =
+    case readText path archive of
+        Err (MissingPart _) ->
             Ok default
 
-        Just path ->
-            case readText path archive of
-                Err (MissingPart _) ->
-                    Ok default
+        Err e ->
+            Err e
 
-                Err e ->
-                    Err e
+        Ok text ->
+            if Tree.hasDoctype text then
+                Err (CorruptPart { part = path, problem = "it has a DOCTYPE, which spreadsheets never use" })
 
-                Ok text ->
-                    if Tree.hasDoctype text then
-                        Err (CorruptPart { part = path, problem = "it has a DOCTYPE, which spreadsheets never use" })
-
-                    else
-                        parse text |> Result.mapError (\problem -> CorruptPart { part = path, problem = problem })
+            else
+                parse text |> Result.mapError (\problem -> CorruptPart { part = path, problem = problem })
 
 
 readText : String -> Archive -> Result Error String

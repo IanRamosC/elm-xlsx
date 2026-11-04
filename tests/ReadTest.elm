@@ -181,6 +181,19 @@ suite =
                         |> Result.andThen Read.firstSheet
                         |> Result.map Read.rows
                         |> Expect.equal (Ok [ [ DateValue (Date.fromCalendarDate 1904 Jan 1), DateValue (Date.fromCalendarDate 1908 Jan 1) ] ])
+            , test "styles and shared strings found without relationships" <|
+                \_ ->
+                    package
+                        [ ( "xl/workbook.xml", "<workbook><sheets><sheet name=\"S\" sheetId=\"1\" r:id=\"rId1\" xmlns:r=\"r\"/></sheets></workbook>" )
+                        , ( "xl/_rels/workbook.xml.rels", "<Relationships><Relationship Id=\"rId1\" Type=\"http://x/worksheet\" Target=\"worksheets/sheet1.xml\"/></Relationships>" )
+                        , ( "xl/sharedStrings.xml", "<sst><si><t>found</t></si></sst>" )
+                        , ( "xl/styles.xml", "<styleSheet><cellXfs><xf numFmtId=\"0\"/><xf numFmtId=\"14\"/></cellXfs></styleSheet>" )
+                        , ( "xl/worksheets/sheet1.xml", "<worksheet><sheetData><row r=\"1\"><c r=\"A1\" t=\"s\"><v>0</v></c><c r=\"B1\" s=\"1\"><v>61</v></c></row></sheetData></worksheet>" )
+                        ]
+                        |> Read.read
+                        |> Result.andThen Read.firstSheet
+                        |> Result.map Read.rows
+                        |> Expect.equal (Ok [ [ Text "found", DateValue (Date.fromCalendarDate 1900 Mar 1) ] ])
             , test "chart sheets have no cells" <|
                 \_ ->
                     package
