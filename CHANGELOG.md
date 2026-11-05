@@ -25,5 +25,18 @@ published version will be 1.0.0.
   row heights, frozen panes, merged cells and autofilters.
 - `Xlsx.Encode`: `table` turns a list of records into a sheet with a frozen,
   filterable header and fitted column widths.
+- `Xlsx.Read`: open `.xlsx` files (`read`, `readWith` with size and
+  zip-bomb limits), list sheets with their visibility and kind, and parse
+  worksheets on demand (`sheet`, `firstSheet`). Read `rows`, `cells`, one
+  `cell`, `dimensions` and `merges`. Cells carry their value, formula and
+  number format; dates are recognised from number formats in both date
+  systems. Handles files from Excel, openpyxl, XlsxWriter, the .NET Open XML
+  SDK (prefixed XML) and ISO 29500 Strict. Legacy `.xls`, encrypted files,
+  `.xlsb` and `.ods` are refused with a clear `Error`.
 - `Xlsx.Date`: Excel serial numbers in the 1900 and 1904 date systems.
 - `Xlsx.Ref`: `A1` references, ranges and sheet-name quoting.
+
+### Fixed
+
+- Writing text that ends in an emoji no longer hangs (`String.right` split
+  the surrogate pair, and `String.any` never returns on a lone surrogate).
