@@ -36,7 +36,8 @@ def main():
         "",
     ]
     for name, path, b64 in entries:
-        out += [f"{{-| {path}", "-}", f"{name} : String", f"{name} =", f'    "{b64}"', "", ""]
+        doc_path = path.replace("_", "\\_")  # as elm-format writes it
+        out += [f"{{-| {doc_path}", "-}", f"{name} : String", f"{name} =", f'    "{b64}"', "", ""]
     with open(os.path.join(ROOT, "tests", "Fixtures.elm"), "w") as fh:
         fh.write("\n".join(out).rstrip() + "\n")
     print(f"embedded {len(entries)} fixtures")
