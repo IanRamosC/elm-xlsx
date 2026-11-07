@@ -33,6 +33,11 @@ published version will be 1.0.0.
   systems. Handles files from Excel, openpyxl, XlsxWriter, the .NET Open XML
   SDK (prefixed XML) and ISO 29500 Strict. Legacy `.xls`, encrypted files,
   `.xlsb` and `.ods` are refused with a clear `Error`.
+- `Xlsx.Decode`: decode sheet rows into your own types, in the style of
+  `elm-csv` (`field`, `optionalField`, `column`, `into`/`pipeline`,
+  `oneOf`, `andThen`, `blank`, `rowNumber`, ...). Headers can come from the
+  first row, a custom list, or not be used. All failing rows are reported
+  with sheet, row, column letter, header and the value found.
 - `Xlsx.Date`: Excel serial numbers in the 1900 and 1904 date systems.
 - `Xlsx.Ref`: `A1` references, ranges and sheet-name quoting.
 

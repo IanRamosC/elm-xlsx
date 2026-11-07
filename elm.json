@@ -8,6 +8,7 @@
         "Xlsx.Write",
         "Xlsx.Encode",
         "Xlsx.Read",
+        "Xlsx.Decode",
         "Xlsx.Style",
         "Xlsx.Date",
         "Xlsx.Ref"
