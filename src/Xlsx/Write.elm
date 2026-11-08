@@ -1,11 +1,13 @@
 module Xlsx.Write exposing
     ( Workbook, workbook, withActiveSheet
+    , withProperties, Property, title, subject, author, manager, company, category, keywords, comments, status
     , Sheet, sheet
     , columnWidth, columnWidths, hideColumn, columnStyle
     , freeze, merge, autoFilter
     , Row, row, rowFrom, emptyRow, emptyRows, rowHeight
     , Cell, string, float, int, bool, date, dateTime, blank, withStyle
     , formula, formulaWithResult, error
+    , hyperlink, linkTo, linkToCell
     , toBytes, Options, defaultOptions, Compression(..)
     , Problem, problemToString
     )
@@ -37,6 +39,20 @@ using the MIME type
 # Workbooks
 
 @docs Workbook, workbook, withActiveSheet
+
+
+## Document properties
+
+Shown in Excel under File → Info, and by file browsers.
+
+    Write.workbook sheets
+        |> Write.withProperties
+            [ Write.title "Q3 orders"
+            , Write.author "Sales team"
+            , Write.company "Acme"
+            ]
+
+@docs withProperties, Property, title, subject, author, manager, company, category, keywords, comments, status
 
 
 # Sheets
@@ -74,6 +90,14 @@ out left to right, starting at column A (or the column given to `rowFrom`).
 @docs formula, formulaWithResult, error
 
 
+## Hyperlinks
+
+Linked cells get Excel's Hyperlink style (blue, underlined) under any style
+you give them.
+
+@docs hyperlink, linkTo, linkToCell
+
+
 # Writing
 
 @docs toBytes, Options, defaultOptions, Compression
@@ -106,7 +130,7 @@ type alias Workbook =
 -}
 workbook : List Sheet -> Workbook
 workbook sheets =
-    Workbook { sheets = sheets, activeSheet = Nothing }
+    Workbook { sheets = sheets, activeSheet = Nothing, properties = Model.defaultProperties }
 
 
 {-| Choose the sheet shown when the file opens, by name.
@@ -114,6 +138,77 @@ workbook sheets =
 withActiveSheet : String -> Workbook -> Workbook
 withActiveSheet name (Workbook w) =
     Workbook { w | activeSheet = Just name }
+
+
+{-| Set document properties. Later ones win.
+-}
+withProperties : List Property -> Workbook -> Workbook
+withProperties properties (Workbook w) =
+    Workbook { w | properties = List.foldl (\(Property set) p -> set p) w.properties properties }
+
+
+{-| One document property.
+-}
+type Property
+    = Property (Model.Properties -> Model.Properties)
+
+
+{-| -}
+title : String -> Property
+title v =
+    Property (\p -> { p | title = v })
+
+
+{-| -}
+subject : String -> Property
+subject v =
+    Property (\p -> { p | subject = v })
+
+
+{-| Also recorded as the last person to modify the file.
+-}
+author : String -> Property
+author v =
+    Property (\p -> { p | author = v })
+
+
+{-| -}
+manager : String -> Property
+manager v =
+    Property (\p -> { p | manager = v })
+
+
+{-| -}
+company : String -> Property
+company v =
+    Property (\p -> { p | company = v })
+
+
+{-| -}
+category : String -> Property
+category v =
+    Property (\p -> { p | category = v })
+
+
+{-| Keywords or tags, as one string: `"sales, 2026, Q3"`.
+-}
+keywords : String -> Property
+keywords v =
+    Property (\p -> { p | keywords = v })
+
+
+{-| A description of the file.
+-}
+comments : String -> Property
+comments v =
+    Property (\p -> { p | comments = v })
+
+
+{-| A status such as `"Draft"` or `"Final"`.
+-}
+status : String -> Property
+status v =
+    Property (\p -> { p | status = v })
 
 
 
@@ -315,7 +410,7 @@ type alias Cell =
 
 cell : Value -> Cell
 cell value =
-    Cell { value = value, style = Model.defaultStyle }
+    Cell { value = value, style = Model.defaultStyle, link = Nothing }
 
 
 {-| Text. Up to 32,767 characters.
@@ -440,6 +535,57 @@ formulaWithResult f (Cell result) =
 error : String -> Cell
 error code =
     cell (ErrorValue code)
+
+
+{-| A text cell that links to a URL: the shortcut for
+`string text |> linkTo url`.
+
+    Write.hyperlink "https://example.com/orders/42" "Order 42"
+
+-}
+hyperlink : String -> String -> Cell
+hyperlink url text =
+    string text |> linkTo url
+
+
+{-| Make any cell a link to a URL: `https:`, `http:`, `mailto:`, `file:`,
+and so on. Spaces and other characters that URLs cannot contain are
+percent-encoded. Up to 2,079 characters, Excel's limit.
+
+    Write.int 42 |> Write.linkTo "https://example.com/orders/42"
+
+-}
+linkTo : String -> Cell -> Cell
+linkTo url (Cell c) =
+    Cell { c | link = Just (Model.Url url) }
+
+
+{-| Make any cell a link to a place in the workbook, written the way Excel
+writes references: `"'Sheet 2'!A1"`, `"Orders!B10:C20"`, or `"A1"` for the
+same sheet. `toBytes` reports links to sheets that do not exist.
+
+    Write.string "See totals" |> Write.linkToCell "Totals!A1"
+
+-}
+linkToCell : String -> Cell -> Cell
+linkToCell location (Cell c) =
+    let
+        trimmed =
+            String.trim location
+    in
+    Cell
+        { c
+            | link =
+                Just
+                    (Model.Location
+                        (if String.startsWith "#" trimmed then
+                            String.dropLeft 1 trimmed
+
+                         else
+                            trimmed
+                        )
+                    )
+        }
 
 
 

@@ -1,4 +1,4 @@
-module Xlsx.Internal.SheetWriter exposing (State, initialState, write)
+module Xlsx.Internal.SheetWriter exposing (State, initialState, write, Written, escapeUrl)
 
 {-| Write one worksheet part.
 
@@ -14,7 +14,7 @@ optional slots for later versions empty:
 Shared strings and cell formats are collected across sheets, so they are
 threaded through as `State`.
 
-@docs State, initialState, write
+@docs State, initialState, write, Written, escapeUrl
 
 -}
 
@@ -22,7 +22,7 @@ import Dict exposing (Dict)
 import Xlsx.Date as XDate
 import Xlsx.Internal.FutureFunctions as FutureFunctions
 import Xlsx.Internal.Limits as Limits
-import Xlsx.Internal.Model as Model exposing (Cell(..), ColumnData, Problem, Row(..), SheetData, StyleData, Value(..))
+import Xlsx.Internal.Model as Model exposing (Cell(..), ColumnData, Link(..), Problem, Row(..), SheetData, StyleData, Value(..))
 import Xlsx.Internal.NumFmt as NumFmt
 import Xlsx.Internal.Opc as Opc
 import Xlsx.Internal.SharedStrings as SharedStrings
@@ -56,6 +56,7 @@ initialState =
 -}
 type alias Context =
     { sheetName : String
+    , sheetNames : List String
     , columnStyles : Dict Int StyleData
     , merges : List Ref.Range
     }
@@ -67,14 +68,25 @@ type alias Acc =
     , block : List PendingRow
     , extent : Maybe Ref.Range
     , rowLimitReported : Bool
+    , links : List ( String, Link )
     , state : State
     }
 
 
-{-| The worksheet XML. `selected` marks the active sheet's tab.
+{-| A written worksheet: its XML, and the URLs of its external links, in
+the order of their relationship ids (`rId1`, `rId2`, ...).
 -}
-write : { selected : Bool } -> SheetData -> State -> ( String, State )
-write { selected } sheet initial =
+type alias Written =
+    { xml : String
+    , urls : List String
+    }
+
+
+{-| The worksheet XML. `selected` marks the active sheet's tab; `sheetNames`
+lets internal links be checked.
+-}
+write : { selected : Bool, sheetNames : List String } -> SheetData -> State -> ( Written, State )
+write { selected, sheetNames } sheet initial =
     let
         problem message =
             { sheet = Just sheet.name, cell = Nothing, message = message }
@@ -103,13 +115,14 @@ write { selected } sheet initial =
 
         context =
             { sheetName = sheet.name
+            , sheetNames = sheetNames
             , columnStyles = Dict.foldl (\k col styles -> Maybe.map (\st -> Dict.insert k st styles) col.style |> Maybe.withDefault styles) Dict.empty sheet.columns
             , merges = merges
             }
 
         acc =
             List.foldl (writeRow context)
-                { rowNumber = 1, out = [], block = [], extent = Nothing, rowLimitReported = False, state = withColumns }
+                { rowNumber = 1, out = [], block = [], extent = Nothing, rowLimitReported = False, links = [], state = withColumns }
                 sheet.rows
                 |> flushBlock
 
@@ -118,6 +131,19 @@ write { selected } sheet initial =
                 |> Maybe.map Ref.rangeToString
                 |> Maybe.withDefault "A1"
 
+        links =
+            List.reverse acc.links
+
+        linkCountProblem =
+            if List.length links > Limits.maxHyperlinks then
+                [ problem ("The sheet has " ++ String.fromInt (List.length links) ++ " hyperlinks; Excel allows " ++ String.fromInt Limits.maxHyperlinks ++ " per sheet.") ]
+
+            else
+                []
+
+        ( hyperlinksXml, urls ) =
+            hyperlinksPart links
+
         sheetData =
             if List.isEmpty acc.out then
                 "<sheetData/>"
@@ -125,27 +151,131 @@ write { selected } sheet initial =
             else
                 "<sheetData>" ++ String.concat (List.reverse acc.out) ++ "</sheetData>"
     in
-    ( String.concat
-        [ Opc.xmlDeclaration
-        , "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\""
-        , " xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
-        , "<dimension ref=\"" ++ dimension ++ "\"/>"
-        , sheetViewsXml selected sheet.freeze
-        , "<sheetFormatPr defaultRowHeight=\"15\"/>"
-        , colsXml
-        , sheetData
-        , case autoFilter of
-            Just r ->
-                "<autoFilter ref=\"" ++ Ref.rangeToString r ++ "\"/>"
+    ( { xml =
+            String.concat
+                [ Opc.xmlDeclaration
+                , "<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\""
+                , " xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+                , "<dimension ref=\"" ++ dimension ++ "\"/>"
+                , sheetViewsXml selected sheet.freeze
+                , "<sheetFormatPr defaultRowHeight=\"15\"/>"
+                , colsXml
+                , sheetData
+                , case autoFilter of
+                    Just r ->
+                        "<autoFilter ref=\"" ++ Ref.rangeToString r ++ "\"/>"
 
-            Nothing ->
-                ""
-        , mergeCellsXml merges
-        , "<pageMargins left=\"0.7\" right=\"0.7\" top=\"0.75\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/>"
-        , "</worksheet>"
-        ]
-    , acc.state
+                    Nothing ->
+                        ""
+                , mergeCellsXml merges
+                , hyperlinksXml
+                , "<pageMargins left=\"0.7\" right=\"0.7\" top=\"0.75\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/>"
+                , "</worksheet>"
+                ]
+      , urls = urls
+      }
+    , List.foldl addProblem acc.state linkCountProblem
     )
+
+
+{-| The `<hyperlinks>` element. External links point at relationships,
+numbered in order; internal ones carry their location.
+-}
+hyperlinksPart : List ( String, Link ) -> ( String, List String )
+hyperlinksPart links =
+    if List.isEmpty links then
+        ( "", [] )
+
+    else
+        let
+            ( items, urls, _ ) =
+                List.foldl
+                    (\( ref, link ) ( xs, us, n ) ->
+                        case link of
+                            Url url ->
+                                ( ("<hyperlink ref=\"" ++ ref ++ "\" r:id=\"rId" ++ String.fromInt n ++ "\"/>") :: xs
+                                , escapeUrl url :: us
+                                , n + 1
+                                )
+
+                            Location location ->
+                                ( ("<hyperlink ref=\"" ++ ref ++ "\" location=\"" ++ Escape.attribute location ++ "\" display=\"" ++ Escape.attribute location ++ "\"/>") :: xs
+                                , us
+                                , n
+                                )
+                    )
+                    ( [], [], 1 )
+                    links
+        in
+        ( "<hyperlinks>" ++ String.concat (List.reverse items) ++ "</hyperlinks>", List.reverse urls )
+
+
+{-| Percent-encode what a URI may not contain: spaces, `"<>\^`{|}`, and`%\`
+not followed by two hex digits. Other characters, including non-ASCII
+letters, are kept; Excel accepts them.
+
+    escapeUrl "https://x.com/a b?q=\"1\"" == "https://x.com/a%20b?q=%221%22"
+
+-}
+escapeUrl : String -> String
+escapeUrl url =
+    escapeUrlHelp (String.toList (String.trim url)) []
+
+
+escapeUrlHelp : List Char -> List String -> String
+escapeUrlHelp chars acc =
+    case chars of
+        [] ->
+            String.concat (List.reverse acc)
+
+        '%' :: a :: b :: rest ->
+            if Char.isHexDigit a && Char.isHexDigit b then
+                escapeUrlHelp rest (String.fromList [ '%', a, b ] :: acc)
+
+            else
+                escapeUrlHelp (a :: b :: rest) ("%25" :: acc)
+
+        c :: rest ->
+            escapeUrlHelp rest
+                ((case c of
+                    '%' ->
+                        "%25"
+
+                    ' ' ->
+                        "%20"
+
+                    '"' ->
+                        "%22"
+
+                    '<' ->
+                        "%3C"
+
+                    '>' ->
+                        "%3E"
+
+                    '\\' ->
+                        "%5C"
+
+                    '^' ->
+                        "%5E"
+
+                    '`' ->
+                        "%60"
+
+                    '{' ->
+                        "%7B"
+
+                    '|' ->
+                        "%7C"
+
+                    '}' ->
+                        "%7D"
+
+                    _ ->
+                        String.fromChar c
+                 )
+                    :: acc
+                )
 
 
 
@@ -486,7 +616,7 @@ writeRow context row acc =
 
                     rowAcc =
                         List.foldl (writeCell context acc.rowNumber)
-                            { column = data.startColumn, cells = [], first = Nothing, last = Nothing, columnLimitReported = False, state = List.foldl addProblem acc.state heightProblems }
+                            { column = data.startColumn, cells = [], first = Nothing, last = Nothing, columnLimitReported = False, links = acc.links, state = List.foldl addProblem acc.state heightProblems }
                             data.cells
 
                     heightAttrs =
@@ -506,6 +636,7 @@ writeRow context row acc =
                             | rowNumber = acc.rowNumber + 1
                             , extent = Just (grow acc.extent { column = first, row = acc.rowNumber } { column = last, row = acc.rowNumber })
                             , state = rowAcc.state
+                            , links = rowAcc.links
                         }
                             |> pushRow { number = acc.rowNumber, attrs = heightAttrs, cells = rowAcc.cells, span = Just ( first, last ) }
 
@@ -516,11 +647,12 @@ writeRow context row acc =
                                 | rowNumber = acc.rowNumber + 1
                                 , extent = Just (grow acc.extent { column = 1, row = acc.rowNumber } { column = 1, row = acc.rowNumber })
                                 , state = rowAcc.state
+                                , links = rowAcc.links
                             }
                                 |> pushRow { number = acc.rowNumber, attrs = heightAttrs, cells = [], span = Nothing }
 
                         else
-                            { acc | rowNumber = acc.rowNumber + 1, state = rowAcc.state }
+                            { acc | rowNumber = acc.rowNumber + 1, state = rowAcc.state, links = rowAcc.links }
 
 
 {-| A written row waiting for its block of 16 rows to be complete. `cells` is
@@ -612,6 +744,7 @@ type alias RowAcc =
     , first : Maybe Int
     , last : Maybe Int
     , columnLimitReported : Bool
+    , links : List ( String, Link )
     , state : State
     }
 
@@ -643,7 +776,14 @@ writeCell context rowNumber (Cell cell) acc =
                 else
                     cell.value
 
-            style =
+            link =
+                if hiddenByMerge context.merges position then
+                    Nothing
+
+                else
+                    cell.link
+
+            ownStyle =
                 case Dict.get acc.column context.columnStyles of
                     Just columnStyle ->
                         Model.mergeStyles columnStyle cell.style
@@ -651,16 +791,32 @@ writeCell context rowNumber (Cell cell) acc =
                     Nothing ->
                         cell.style
 
+            style =
+                case link of
+                    Just _ ->
+                        Model.mergeStyles Styles.hyperlinkStyle ownStyle
+
+                    Nothing ->
+                        ownStyle
+
             problems =
                 Limits.checkCell context.sheetName ref value
+                    ++ (link |> Maybe.map (linkProblems context ref) |> Maybe.withDefault [])
 
             state =
                 List.foldl addProblem acc.state problems
         in
-        case cellXml ref value (effectiveStyle value style) state of
+        case cellXml (link /= Nothing) ref value (effectiveStyle value style) state of
             ( Just xml, newState ) ->
                 { acc
                     | column = acc.column + 1
+                    , links =
+                        case link of
+                            Just l ->
+                                ( ref, l ) :: acc.links
+
+                            Nothing ->
+                                acc.links
                     , cells = xml :: acc.cells
                     , first =
                         if acc.first == Nothing then
@@ -700,11 +856,76 @@ effectiveStyle value style =
             style
 
 
-cellXml : String -> Value -> StyleData -> State -> ( Maybe String, State )
-cellXml ref value style state =
+{-| Problems with a cell's link: an empty or too-long URL, or a link to a
+sheet that does not exist.
+-}
+linkProblems : Context -> String -> Link -> List Problem
+linkProblems context ref link =
+    let
+        cellProblem message =
+            { sheet = Just context.sheetName, cell = Just ref, message = message }
+    in
+    case link of
+        Url url ->
+            let
+                escaped =
+                    escapeUrl url
+            in
+            if String.isEmpty escaped then
+                [ cellProblem "The link has an empty URL." ]
+
+            else if String.length escaped > Limits.maxUrlLength then
+                [ cellProblem ("The link's URL has " ++ String.fromInt (String.length escaped) ++ " characters; Excel allows " ++ String.fromInt Limits.maxUrlLength ++ ".") ]
+
+            else
+                []
+
+        Location location ->
+            if String.isEmpty location then
+                [ cellProblem "The link has an empty location." ]
+
+            else
+                case linkedSheet location of
+                    Just name ->
+                        if List.any (\n -> String.toLower n == String.toLower name) context.sheetNames then
+                            []
+
+                        else
+                            [ cellProblem ("The link goes to the sheet \"" ++ name ++ "\", which is not in the workbook.") ]
+
+                    Nothing ->
+                        []
+
+
+{-| The sheet named in a location like `'My sheet'!A1`, unquoted.
+-}
+linkedSheet : String -> Maybe String
+linkedSheet location =
+    case List.reverse (String.indexes "!" location) of
+        i :: _ ->
+            let
+                name =
+                    String.left i location
+            in
+            if String.startsWith "'" name && String.endsWith "'" name && String.length name >= 2 then
+                Just (String.replace "''" "'" (String.slice 1 -1 name))
+
+            else
+                Just name
+
+        [] ->
+            Nothing
+
+
+cellXml : Bool -> String -> Value -> StyleData -> State -> ( Maybe String, State )
+cellXml isLink ref value style state =
     let
         ( xf, withStyle ) =
-            Styles.register style state.styles
+            if isLink then
+                Styles.registerLink style state.styles
+
+            else
+                Styles.register style state.styles
 
         styledState =
             { state | styles = withStyle }

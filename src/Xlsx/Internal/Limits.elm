@@ -1,5 +1,5 @@
 module Xlsx.Internal.Limits exposing
-    ( maxRows, maxColumns, maxTextLength, maxFormulaLength
+    ( maxRows, maxColumns, maxTextLength, maxFormulaLength, maxUrlLength, maxHyperlinks
     , checkWorkbook, checkSheetName, checkCell
     , errorCodes
     )
@@ -7,7 +7,7 @@ module Xlsx.Internal.Limits exposing
 {-| Excel's limits, and the checks `Xlsx.Write` runs before writing. Each
 check returns every problem it finds instead of stopping at the first.
 
-@docs maxRows, maxColumns, maxTextLength, maxFormulaLength
+@docs maxRows, maxColumns, maxTextLength, maxFormulaLength, maxUrlLength, maxHyperlinks
 @docs checkWorkbook, checkSheetName, checkCell
 @docs errorCodes
 
@@ -37,6 +37,20 @@ Elm's `String.length` does).
 maxTextLength : Int
 maxTextLength =
     32767
+
+
+{-| Characters in a hyperlink's URL.
+-}
+maxUrlLength : Int
+maxUrlLength =
+    2079
+
+
+{-| Hyperlinks per worksheet.
+-}
+maxHyperlinks : Int
+maxHyperlinks =
+    65530
 
 
 {-| -}

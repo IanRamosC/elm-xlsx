@@ -8,26 +8,41 @@ module Xlsx.Internal.DocProps exposing (core, app, iso8601)
 -}
 
 import Time
+import Xlsx.Internal.Model exposing (Properties)
 import Xlsx.Internal.Opc as Opc
 import Xlsx.Internal.Xml.Escape as Escape
 
 
 {-| The core properties part.
 -}
-core : { created : Time.Posix } -> String
-core { created } =
+core : { created : Time.Posix, properties : Properties } -> String
+core { created, properties } =
     let
         stamp =
             Escape.text (iso8601 created)
+
+        optional tag value =
+            if String.isEmpty value then
+                ""
+
+            else
+                "<" ++ tag ++ ">" ++ Escape.text value ++ "</" ++ tag ++ ">"
     in
     String.concat
         [ Opc.xmlDeclaration
         , "<cp:coreProperties xmlns:cp=\"http://schemas.openxmlformats.org/package/2006/metadata/core-properties\""
         , " xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:dcterms=\"http://purl.org/dc/terms/\""
         , " xmlns:dcmitype=\"http://purl.org/dc/dcmitype/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">"
-        , "<dc:creator></dc:creator><cp:lastModifiedBy></cp:lastModifiedBy>"
+        , optional "dc:title" properties.title
+        , optional "dc:subject" properties.subject
+        , "<dc:creator>" ++ Escape.text properties.author ++ "</dc:creator>"
+        , optional "cp:keywords" properties.keywords
+        , optional "dc:description" properties.comments
+        , "<cp:lastModifiedBy>" ++ Escape.text properties.author ++ "</cp:lastModifiedBy>"
         , "<dcterms:created xsi:type=\"dcterms:W3CDTF\">" ++ stamp ++ "</dcterms:created>"
         , "<dcterms:modified xsi:type=\"dcterms:W3CDTF\">" ++ stamp ++ "</dcterms:modified>"
+        , optional "cp:category" properties.category
+        , optional "cp:contentStatus" properties.status
         , "</cp:coreProperties>"
         ]
 
@@ -38,8 +53,8 @@ core { created } =
 because some readers check it.
 
 -}
-app : { sheetNames : List String } -> String
-app { sheetNames } =
+app : { sheetNames : List String, properties : Properties } -> String
+app { sheetNames, properties } =
     let
         count =
             String.fromInt (List.length sheetNames)
@@ -56,7 +71,12 @@ app { sheetNames } =
         , "<TitlesOfParts><vt:vector size=\"" ++ count ++ "\" baseType=\"lpstr\">"
         , String.concat (List.map (\name -> "<vt:lpstr>" ++ Escape.text name ++ "</vt:lpstr>") sheetNames)
         , "</vt:vector></TitlesOfParts>"
-        , "<Company></Company><LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc>"
+        , if String.isEmpty properties.manager then
+            ""
+
+          else
+            "<Manager>" ++ Escape.text properties.manager ++ "</Manager>"
+        , "<Company>" ++ Escape.text properties.company ++ "</Company><LinksUpToDate>false</LinksUpToDate><SharedDoc>false</SharedDoc>"
         , "<HyperlinksChanged>false</HyperlinksChanged><AppVersion>12.0000</AppVersion>"
         , "</Properties>"
         ]

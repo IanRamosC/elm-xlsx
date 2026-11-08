@@ -11,7 +11,7 @@ import Bytes.Encode
 import Time
 import Xlsx.Internal.DocProps as DocProps
 import Xlsx.Internal.Limits as Limits
-import Xlsx.Internal.Model exposing (Problem, Sheet(..), WorkbookData)
+import Xlsx.Internal.Model exposing (Problem, Properties, Sheet(..), WorkbookData)
 import Xlsx.Internal.Opc as Opc exposing (contentType, relType)
 import Xlsx.Internal.SharedStrings as SharedStrings
 import Xlsx.Internal.SheetWriter as SheetWriter
@@ -54,7 +54,7 @@ write options workbook =
                 (\( index, sheet ) ( acc, st ) ->
                     let
                         ( xml, next ) =
-                            SheetWriter.write { selected = index == activeIndex } sheet st
+                            SheetWriter.write { selected = index == activeIndex, sheetNames = names } sheet st
                     in
                     ( xml :: acc, next )
                 )
@@ -74,6 +74,7 @@ write options workbook =
                     , sheetXmls = sheetXmls
                     , state = state
                     , created = options.created
+                    , properties = workbook.properties
                     , filters =
                         List.indexedMap (\i sheet -> ( i, sheet.name, sheet.autoFilter |> Maybe.andThen Ref.rangeFromString )) sheets
                             |> List.filterMap (\( i, name, r ) -> Maybe.map (\range -> ( i, name, range )) r)
@@ -88,9 +89,10 @@ write options workbook =
 type alias PartsInput =
     { names : List String
     , activeIndex : Int
-    , sheetXmls : List String
+    , sheetXmls : List SheetWriter.Written
     , state : SheetWriter.State
     , created : Time.Posix
+    , properties : Properties
     , filters : List ( Int, String, Ref.Range )
     }
 
@@ -144,8 +146,8 @@ parts input =
     in
     [ ( "[Content_Types].xml", Opc.contentTypes overrides )
     , ( "_rels/.rels", Opc.relationships rootRels )
-    , ( "docProps/app.xml", DocProps.app { sheetNames = input.names } )
-    , ( "docProps/core.xml", DocProps.core { created = input.created } )
+    , ( "docProps/app.xml", DocProps.app { sheetNames = input.names, properties = input.properties } )
+    , ( "docProps/core.xml", DocProps.core { created = input.created, properties = input.properties } )
     , ( "xl/workbook.xml", workbookXml input )
     , ( "xl/_rels/workbook.xml.rels", Opc.relationships workbookRels )
     , ( "xl/styles.xml", Styles.toXml input.state.styles )
@@ -156,7 +158,27 @@ parts input =
             else
                 []
            )
-        ++ List.map2 (\n xml -> ( sheetPath n, xml )) sheetNumbers input.sheetXmls
+        ++ List.concat
+            (List.map2
+                (\n written ->
+                    ( sheetPath n, written.xml )
+                        :: (if List.isEmpty written.urls then
+                                []
+
+                            else
+                                [ ( "xl/worksheets/_rels/sheet" ++ String.fromInt n ++ ".xml.rels"
+                                  , Opc.relationships
+                                        (List.indexedMap
+                                            (\i url -> { id = "rId" ++ String.fromInt (i + 1), type_ = relType.hyperlink, target = url, external = True })
+                                            written.urls
+                                        )
+                                  )
+                                ]
+                           )
+                )
+                sheetNumbers
+                input.sheetXmls
+            )
 
 
 workbookXml : PartsInput -> String

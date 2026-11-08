@@ -2,7 +2,8 @@ module Xlsx.Internal.Model exposing
     ( Workbook(..), WorkbookData
     , Sheet(..), SheetData, ColumnData
     , Row(..), RowData
-    , Cell(..), CellData, Value(..)
+    , Cell(..), CellData, Value(..), Link(..)
+    , Properties, defaultProperties
     , Style(..), StyleData, Border, defaultStyle, mergeStyles
     , Problem
     )
@@ -13,7 +14,8 @@ module so several public modules can share it.
 @docs Workbook, WorkbookData
 @docs Sheet, SheetData, ColumnData
 @docs Row, RowData
-@docs Cell, CellData, Value
+@docs Cell, CellData, Value, Link
+@docs Properties, defaultProperties
 @docs Style, StyleData, Border, defaultStyle, mergeStyles
 @docs Problem
 
@@ -33,6 +35,37 @@ type Workbook
 type alias WorkbookData =
     { sheets : List Sheet
     , activeSheet : Maybe String
+    , properties : Properties
+    }
+
+
+{-| Document properties. Empty strings are not written.
+-}
+type alias Properties =
+    { title : String
+    , subject : String
+    , author : String
+    , manager : String
+    , company : String
+    , category : String
+    , keywords : String
+    , comments : String
+    , status : String
+    }
+
+
+{-| -}
+defaultProperties : Properties
+defaultProperties =
+    { title = ""
+    , subject = ""
+    , author = ""
+    , manager = ""
+    , company = ""
+    , category = ""
+    , keywords = ""
+    , comments = ""
+    , status = ""
     }
 
 
@@ -86,7 +119,16 @@ type Cell
 type alias CellData =
     { value : Value
     , style : StyleData
+    , link : Maybe Link
     }
+
+
+{-| Where a hyperlink goes: a URL (`https:`, `mailto:`, `file:`, ...), or a
+place in the workbook such as `'Sheet 2'!A1`.
+-}
+type Link
+    = Url String
+    | Location String
 
 
 {-| What a cell holds. A formula's cached result is another value (never a
