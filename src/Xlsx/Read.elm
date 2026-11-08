@@ -300,10 +300,10 @@ optionalPart path archive parse default =
 
         Ok text ->
             if Tree.hasDoctype text then
-                Err (CorruptPart { part = path, problem = "it has a DOCTYPE, which spreadsheets never use" })
+                Err (InvalidXml { part = path, problem = "it has a DOCTYPE, which spreadsheets never use" })
 
             else
-                parse text |> Result.mapError (\problem -> CorruptPart { part = path, problem = problem })
+                parse text |> Result.mapError (\problem -> InvalidXml { part = path, problem = problem })
 
 
 readText : String -> Archive -> Result Error String
@@ -316,7 +316,7 @@ readText path archive =
                         MissingPart path
 
                     Archive.PartCorrupt problem ->
-                        CorruptPart { part = path, problem = problem }
+                        InvalidXml { part = path, problem = problem }
 
                     Archive.PartUtf16 ->
                         UnsupportedEncoding path
@@ -326,7 +326,7 @@ readText path archive =
 readTree : String -> Archive -> Result Error Tree.Element
 readTree path archive =
     readText path archive
-        |> Result.andThen (Tree.parse >> Result.mapError (\problem -> CorruptPart { part = path, problem = problem }))
+        |> Result.andThen (Tree.parse >> Result.mapError (\problem -> InvalidXml { part = path, problem = problem }))
 
 
 readRelationships : String -> Archive -> Result Error (List Opc.Relationship)
@@ -344,7 +344,7 @@ readRelationships part archive =
 
         Ok text ->
             Opc.parseRelationships text
-                |> Result.mapError (\problem -> CorruptPart { part = path, problem = problem })
+                |> Result.mapError (\problem -> InvalidXml { part = path, problem = problem })
 
 
 
@@ -442,7 +442,7 @@ parseSheet (Workbook wb) entry =
                 |> Result.andThen
                     (\xml ->
                         if Tree.hasDoctype xml then
-                            Err (CorruptPart { part = path, problem = "it has a DOCTYPE, which spreadsheets never use" })
+                            Err (InvalidXml { part = path, problem = "it has a DOCTYPE, which spreadsheets never use" })
 
                         else
                             let
@@ -699,7 +699,9 @@ merges (Sheet s) =
     or `.ods`, or a chart sheet asked for as a worksheet.
   - `UnsupportedEncoding`: the part is UTF-16, not UTF-8.
   - `MissingPart`: the file refers to a part that is not in it.
-  - `CorruptPart`: a part could not be decompressed or is not valid XML.
+  - `InvalidXml`: a part is not valid XML. Parts that cannot be
+    decompressed (a bad checksum, an unknown compression method) are
+    reported this way too, with the reason in `problem`.
   - `LimitExceeded`: the file breaks one of the [`ReadOptions`](#ReadOptions)
     limits.
   - `SheetNotFound`: no sheet has that name.
@@ -711,7 +713,7 @@ type Error
     | UnsupportedFormat String
     | UnsupportedEncoding String
     | MissingPart String
-    | CorruptPart { part : String, problem : String }
+    | InvalidXml { part : String, problem : String }
     | LimitExceeded String
     | SheetNotFound String
 
@@ -736,7 +738,7 @@ errorToString error =
         MissingPart part ->
             "The file is incomplete: " ++ part ++ " is missing."
 
-        CorruptPart { part, problem } ->
+        InvalidXml { part, problem } ->
             "The file is damaged: " ++ part ++ " could not be read (" ++ problem ++ ")."
 
         LimitExceeded message ->
