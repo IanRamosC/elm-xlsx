@@ -1,5 +1,5 @@
 module Xlsx.Internal.SheetReader exposing
-    ( Context, RawCell, RawValue(..), SheetContent
+    ( Context, RawCell, RawValue(..), SheetContent, RawLink
     , read
     )
 
@@ -18,7 +18,7 @@ What it relies on, and what it tolerates:
   - Shared formulas: only the anchor cell carries the formula text; the
     other cells in the range get `Nothing`.
 
-@docs Context, RawCell, RawValue, SheetContent
+@docs Context, RawCell, RawValue, SheetContent, RawLink
 @docs read
 
 -}
@@ -65,8 +65,19 @@ written (`"A1:B2"`), and the used extent.
 type alias SheetContent =
     { cells : List RawCell
     , merges : List String
+    , hyperlinks : List RawLink
     , lastRow : Int
     , lastColumn : Int
+    }
+
+
+{-| A `<hyperlink>`: the cell or range it covers, the relationship id of an
+external target, and the location within the workbook.
+-}
+type alias RawLink =
+    { ref : String
+    , relationship : Maybe String
+    , location : Maybe String
     }
 
 
@@ -89,6 +100,23 @@ read context xml =
     , merges =
         Scan.elements prefix "mergeCell" afterData
             |> List.filterMap (Scan.startTag >> Scan.attribute "ref")
+    , hyperlinks =
+        Scan.elements prefix "hyperlink" afterData
+            |> List.filterMap
+                (\chunk ->
+                    let
+                        tag =
+                            Scan.startTag chunk
+                    in
+                    Scan.attribute "ref" tag
+                        |> Maybe.map
+                            (\ref ->
+                                { ref = ref
+                                , relationship = Scan.prefixedAttribute "id" tag
+                                , location = Scan.attribute "location" tag
+                                }
+                            )
+                )
     , lastRow = lastRow
     , lastColumn = lastColumn
     }

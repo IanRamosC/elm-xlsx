@@ -1,6 +1,6 @@
 module Xlsx.Internal.Xml.Scan exposing
     ( rootPrefix
-    , elements, startTag, attribute, content
+    , elements, startTag, attribute, prefixedAttribute, content
     , textRuns, decodeText
     )
 
@@ -12,7 +12,7 @@ Every function takes the namespace prefix of the document (`""` or `"x:"`),
 found once with `rootPrefix`.
 
 @docs rootPrefix
-@docs elements, startTag, attribute, content
+@docs elements, startTag, attribute, prefixedAttribute, content
 @docs textRuns, decodeText
 
 -}
@@ -161,6 +161,14 @@ attribute name tag =
 
             else
                 Nothing
+
+
+{-| A namespaced attribute, whatever its prefix: `prefixedAttribute "id"`
+finds `r:id="rId1"` and `ns0:id="rId1"`.
+-}
+prefixedAttribute : String -> String -> Maybe String
+prefixedAttribute name tag =
+    findAttribute (":" ++ name ++ "=") (String.map whitespaceToSpace tag)
 
 
 whitespaceToSpace : Char -> Char

@@ -448,16 +448,27 @@ parseSheet (Workbook wb) entry =
                             let
                                 content =
                                     SheetReader.read { sharedStrings = wb.sharedStrings, formats = wb.formats } xml
+
+                                rels =
+                                    if List.any (\l -> l.relationship /= Nothing) content.hyperlinks then
+                                        readRelationships path wb.archive
+
+                                    else
+                                        Ok []
                             in
-                            Ok
-                                (Sheet
-                                    { name = entry.info.name
-                                    , rows = List.foldl (insertCell wb.dateSystem) Dict.empty content.cells
-                                    , lastRow = content.lastRow
-                                    , lastColumn = content.lastColumn
-                                    , merges = List.filterMap Ref.rangeFromString content.merges
-                                    }
-                                )
+                            rels
+                                |> Result.map
+                                    (\relationships ->
+                                        Sheet
+                                            { name = entry.info.name
+                                            , rows =
+                                                List.foldl (insertCell wb.dateSystem) Dict.empty content.cells
+                                                    |> addLinks relationships content.hyperlinks
+                                            , lastRow = content.lastRow
+                                            , lastColumn = content.lastColumn
+                                            , merges = List.filterMap Ref.rangeFromString content.merges
+                                            }
+                                    )
                     )
 
         ( Worksheet, Nothing ) ->
@@ -467,6 +478,59 @@ parseSheet (Workbook wb) entry =
             Err (UnsupportedFormat ("\"" ++ entry.info.name ++ "\" is not a worksheet, so it has no cells."))
 
 
+{-| Set the `hyperlink` of every cell a `<hyperlink>` covers. External
+targets come from the sheet's relationships; a location alone becomes
+`#location`.
+-}
+addLinks : List Opc.Relationship -> List SheetReader.RawLink -> Dict Int (Dict Int Cell) -> Dict Int (Dict Int Cell)
+addLinks relationships links cellRows =
+    let
+        targets =
+            Dict.fromList (List.map (\r -> ( r.id, r.target )) relationships)
+
+        linkText link =
+            case ( link.relationship |> Maybe.andThen (\id -> Dict.get id targets), link.location ) of
+                ( Just url, Just location ) ->
+                    Just (url ++ "#" ++ location)
+
+                ( Just url, Nothing ) ->
+                    Just url
+
+                ( Nothing, Just location ) ->
+                    Just ("#" ++ location)
+
+                ( Nothing, Nothing ) ->
+                    Nothing
+    in
+    List.foldl
+        (\link acc ->
+            case ( Ref.rangeFromString link.ref, linkText link ) of
+                ( Just range, Just text ) ->
+                    Dict.map
+                        (\r columns ->
+                            if r >= range.start.row && r <= range.end.row then
+                                Dict.map
+                                    (\c cell_ ->
+                                        if c >= range.start.column && c <= range.end.column then
+                                            { cell_ | hyperlink = Just text }
+
+                                        else
+                                            cell_
+                                    )
+                                    columns
+
+                            else
+                                columns
+                        )
+                        acc
+
+                _ ->
+                    acc
+        )
+        cellRows
+        links
+
+
 insertCell : XDate.DateSystem -> SheetReader.RawCell -> Dict Int (Dict Int Cell) -> Dict Int (Dict Int Cell)
 insertCell system raw acc =
     let
@@ -474,6 +538,7 @@ insertCell system raw acc =
             { value = toValue system raw.format raw.value
             , formula = raw.formula
             , numberFormat = raw.format.code
+            , hyperlink = Nothing
             }
     in
     Dict.update raw.row
@@ -493,12 +558,18 @@ name (Sheet s) =
 
 
 {-| A cell: its value, the formula that produced it (without the leading
-`=`), and its number format code (`"General"`, `"0.00%"`, `"yyyy-mm-dd"`, …).
+`=`), its number format code (`"General"`, `"0.00%"`, `"yyyy-mm-dd"`, …),
+and where it links to.
+
+`hyperlink` is a URL (`"https://example.com"`), or `#` followed by a place in
+the workbook (`"#'Sheet 2'!A1"`), as in Excel's `HYPERLINK` function.
+
 -}
 type alias Cell =
     { value : CellValue
     , formula : Maybe String
     , numberFormat : String
+    , hyperlink : Maybe String
     }
 
 
@@ -522,7 +593,7 @@ type CellValue
 
 emptyCell : Cell
 emptyCell =
-    { value = Empty, formula = Nothing, numberFormat = "General" }
+    { value = Empty, formula = Nothing, numberFormat = "General", hyperlink = Nothing }
 
 
 toValue : XDate.DateSystem -> CellFormat -> RawValue -> CellValue

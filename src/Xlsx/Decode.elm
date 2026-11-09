@@ -275,7 +275,7 @@ currentCell state =
 cellAt : Int -> State -> Read.Cell
 cellAt col state =
     Dict.get col state.cells
-        |> Maybe.withDefault { value = Empty, formula = Nothing, numberFormat = "General" }
+        |> Maybe.withDefault { value = Empty, formula = Nothing, numberFormat = "General", hyperlink = Nothing }
 
 
 {-| `Nothing` for an empty cell (or text that is only whitespace), otherwise
