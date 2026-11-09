@@ -95,9 +95,9 @@ suite =
                             )
                         |> Expect.equal
                             (Ok
-                                ( [ { value = Number 4, formula = Just "A1*2", numberFormat = "General" }
-                                  , { value = Empty, formula = Just "XLOOKUP(1,A:A,B:B)", numberFormat = "General" }
-                                  , { value = Number 0.25, formula = Nothing, numberFormat = "0%" }
+                                ( [ { value = Number 4, formula = Just "A1*2", numberFormat = "General", hyperlink = Nothing }
+                                  , { value = Empty, formula = Just "XLOOKUP(1,A:A,B:B)", numberFormat = "General", hyperlink = Nothing }
+                                  , { value = Number 0.25, formula = Nothing, numberFormat = "0%", hyperlink = Nothing }
                                   ]
                                 , Just "A1:C2"
                                 )

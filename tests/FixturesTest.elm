@@ -38,7 +38,7 @@ at ref sheet =
             Read.cell r sheet
 
         Nothing ->
-            { value = ErrorValue ("bad ref " ++ ref), formula = Nothing, numberFormat = "" }
+            { value = ErrorValue ("bad ref " ++ ref), formula = Nothing, numberFormat = "", hyperlink = Nothing }
 
 
 suite : Test
@@ -46,7 +46,7 @@ suite =
     describe "fixtures from other writers"
         [ test "every fixture opens and every worksheet parses" <|
             \_ ->
-                [ Fixtures.openpyxl1904, Fixtures.openpyxlTypes, Fixtures.sdkStyle, Fixtures.strict, Fixtures.autofilter01, Fixtures.format01, Fixtures.mergeRange01, Fixtures.panes01, Fixtures.setColumn01, Fixtures.setRow01, Fixtures.simple01 ]
+                [ Fixtures.openpyxl1904, Fixtures.openpyxlTypes, Fixtures.sdkStyle, Fixtures.strict, Fixtures.autofilter01, Fixtures.format01, Fixtures.mergeRange01, Fixtures.panes01, Fixtures.setColumn01, Fixtures.setRow01, Fixtures.simple01, Fixtures.hyperlink03, Fixtures.hyperlink31, Fixtures.properties01 ]
                     |> List.map
                         (\b64 ->
                             open b64
@@ -74,6 +74,12 @@ suite =
                         )
                     |> List.filter ((/=) (Ok ()))
                     |> Expect.equal []
+        , test "hyperlinks in Excel-made files" <|
+            \_ ->
+                open Fixtures.hyperlink03
+                    |> Result.andThen (Read.sheet "Sheet2" >> Result.mapError Read.errorToString)
+                    |> Result.map (\s -> List.map (\r -> (at r s).hyperlink) [ "C2", "C5", "C7", "A1" ])
+                    |> Expect.equal (Ok [ Just "http://www.google.com/", Just "http://www.cpan.org/", Just "http://www.perl.org/", Nothing ])
         , test "XlsxWriter simple01" <|
             \_ -> rowsOf "Sheet1" Fixtures.simple01 |> Expect.equal (Ok [ [ Text "Hello" ], [ Number 123 ] ])
         , describe "SDK style: prefixes, inline strings, missing r, shared formulas"

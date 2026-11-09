@@ -32,6 +32,11 @@ PAIRS = {
     "golden-autofilter01": ("autofilter01", None),
     # Sheets 7-13 of panes01 use split panes, which are not supported.
     "golden-panes01": ("panes01", [f"xl/worksheets/sheet{n}.xml" for n in range(1, 7)]),
+    "golden-hyperlink31": ("hyperlink31", None),
+    # hyperlink03 was made without the Hyperlink style, which we always apply,
+    # so only the links themselves are compared.
+    "golden-hyperlink03": ("hyperlink03", ["xl/worksheets/_rels/sheet1.xml.rels", "xl/worksheets/_rels/sheet2.xml.rels", "[Content_Types].xml"]),
+    "golden-properties01": ("properties01", None),
 }
 
 # Parts we never write, on purpose.
@@ -40,7 +45,7 @@ SKIPPED_PARTS = {
     "xl/theme/theme1.xml",
 }
 
-# Parts whose children are an unordered set.
+# Parts whose children are an unordered set (every .rels part is too).
 UNORDERED_PARTS = {"[Content_Types].xml", "_rels/.rels", "xl/_rels/workbook.xml.rels"}
 
 # Attributes that only record Excel's window position and size.
@@ -58,6 +63,9 @@ ALLOWED = {
     ("xl/styles.xml", '<color theme="1"/>'),
     ("xl/styles.xml", '<color rgb="FF000000"/>'),
     ("xl/styles.xml", '<scheme val="minor"/>'),
+    # Excel's hyperlink color is theme color 10 (#0563C1 in the Office theme).
+    ("xl/styles.xml", '<color theme="10"/>'),
+    ("xl/styles.xml", '<color rgb="FF0563C1"/>'),
     # The theme content type goes with the theme part.
     ("[Content_Types].xml", '<Override ContentType="application/vnd.openxmlformats-officedocument.theme+xml" PartName="/xl/theme/theme1.xml"/>'),
     # Excel writes its own build number; we write XlsxWriter's.
@@ -126,7 +134,7 @@ def compare(sample, reference, only):
             problems.append(f"extra part {name}")
             continue
         a, b = normalize(theirs[name], name), normalize(ours[name], name)
-        if name in UNORDERED_PARTS:
+        if name in UNORDERED_PARTS or name.endswith(".rels"):
             a, b = sorted(a), sorted(b)
         diff = [
             line

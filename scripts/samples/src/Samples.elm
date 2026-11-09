@@ -303,6 +303,9 @@ goldens =
     , ( "golden-set_row01", setRow01 )
     , ( "golden-autofilter01", autofilter01 )
     , ( "golden-panes01", panes01 )
+    , ( "golden-hyperlink31", hyperlink31 )
+    , ( "golden-hyperlink03", hyperlink03 )
+    , ( "golden-properties01", properties01 )
     , ( "showcase", showcase )
     ]
 
@@ -389,6 +392,72 @@ setColumn01 =
             (W.sheet "Sheet1" [] |> W.columnWidth 1 0.08)
             widths
         ]
+
+
+hyperlink31 : W.Workbook
+hyperlink31 =
+    W.workbook
+        [ W.sheet "Sheet1"
+            [ W.row [ W.string "Test" |> W.withStyle (Style.none |> Style.bold) ]
+            , W.emptyRow
+            , W.row [ W.hyperlink "http://www.python.org/" "http://www.python.org/" ]
+            ]
+        ]
+
+
+hyperlink03 : W.Workbook
+hyperlink03 =
+    let
+        link url =
+            W.hyperlink url url
+
+        perl =
+            "http://www.perl.org/"
+
+        cpan =
+            "http://www.cpan.org/"
+    in
+    W.workbook
+        [ W.sheet "Sheet1"
+            [ W.row [ link perl ]
+            , W.emptyRows 2
+            , W.rowFrom 4 [ link perl ]
+            , W.emptyRow
+            , W.rowFrom 2 [ link cpan ]
+            , W.emptyRow
+            , W.row [ link perl ]
+            , W.emptyRows 3
+            , W.rowFrom 6 [ link cpan ]
+            ]
+        , W.sheet "Sheet2"
+            [ W.emptyRow
+            , W.rowFrom 3 [ link "http://www.google.com/" ]
+            , W.emptyRows 2
+            , W.rowFrom 3 [ link cpan ]
+            , W.emptyRow
+            , W.rowFrom 3 [ link perl ]
+            ]
+        ]
+
+
+properties01 : W.Workbook
+properties01 =
+    W.workbook
+        [ W.sheet "Sheet1"
+            [ W.row [ W.string "Select 'Office Button -> Prepare -> Properties' to see the file properties." ] ]
+            |> W.columnWidth 1 70
+        ]
+        |> W.withProperties
+            [ W.title "This is an example spreadsheet"
+            , W.subject "With document properties"
+            , W.author "Someone"
+            , W.manager "Dr. Heinz Doofenshmirtz"
+            , W.company "of Wolves"
+            , W.category "Example spreadsheets"
+            , W.keywords "Sample, Example, Properties"
+            , W.comments "Created with Perl and Excel::Writer::XLSX"
+            , W.status "Quo"
+            ]
 
 
 setRow01 : W.Workbook
