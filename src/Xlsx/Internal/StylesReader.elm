@@ -10,7 +10,7 @@ style index (`s="3"`), its number format code and kind.
 import Array exposing (Array)
 import Dict exposing (Dict)
 import Xlsx.Internal.NumFmt as NumFmt
-import Xlsx.Internal.Xml.Tree as Tree
+import Xlsx.Internal.Xml.Scan as Scan
 
 
 {-| -}
@@ -32,28 +32,33 @@ general =
 -}
 parse : String -> Result String (Array CellFormat)
 parse xml =
-    Tree.parse xml
+    Scan.document "styleSheet" xml
         |> Result.map
-            (\root ->
+            (\prefix ->
                 let
                     custom =
-                        Tree.child "numFmts" root
-                            |> Maybe.map (Tree.children "numFmt")
-                            |> Maybe.withDefault []
+                        Scan.section prefix "numFmts" xml
+                            |> Maybe.withDefault ""
+                            |> Scan.elements prefix "numFmt"
                             |> List.filterMap
-                                (\el ->
+                                (\chunk ->
+                                    let
+                                        tag =
+                                            Scan.startTag chunk
+                                    in
                                     Maybe.map2 Tuple.pair
-                                        (Tree.attribute "numFmtId" el |> Maybe.andThen String.toInt)
-                                        (Tree.attribute "formatCode" el)
+                                        (Scan.attribute "numFmtId" tag |> Maybe.andThen String.toInt)
+                                        (Scan.attribute "formatCode" tag)
                                 )
                             |> Dict.fromList
                 in
-                Tree.child "cellXfs" root
-                    |> Maybe.map (Tree.children "xf")
-                    |> Maybe.withDefault []
+                Scan.section prefix "cellXfs" xml
+                    |> Maybe.withDefault ""
+                    |> Scan.elements prefix "xf"
                     |> List.map
-                        (\xf ->
-                            Tree.attribute "numFmtId" xf
+                        (\chunk ->
+                            Scan.startTag chunk
+                                |> Scan.attribute "numFmtId"
                                 |> Maybe.andThen String.toInt
                                 |> Maybe.withDefault 0
                                 |> formatFor custom

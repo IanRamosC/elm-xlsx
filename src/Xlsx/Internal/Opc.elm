@@ -23,7 +23,7 @@ relationship parts that tie the package together.
 
 import Url
 import Xlsx.Internal.Xml.Escape as Escape
-import Xlsx.Internal.Xml.Tree as Tree
+import Xlsx.Internal.Xml.Scan as Scan
 
 
 {-| -}
@@ -143,23 +143,27 @@ contentType =
 -}
 parseRelationships : String -> Result String (List Relationship)
 parseRelationships xml =
-    Tree.parse xml
+    Scan.document "Relationships" xml
         |> Result.map
-            (\root ->
-                Tree.children "Relationship" root
+            (\prefix ->
+                Scan.elements prefix "Relationship" xml
                     |> List.filterMap
-                        (\rel ->
+                        (\chunk ->
+                            let
+                                tag =
+                                    Scan.startTag chunk
+                            in
                             Maybe.map3
                                 (\id type_ target ->
                                     { id = id
                                     , type_ = type_
                                     , target = target
-                                    , external = Tree.attribute "TargetMode" rel == Just "External"
+                                    , external = Scan.attribute "TargetMode" tag == Just "External"
                                     }
                                 )
-                                (Tree.attribute "Id" rel)
-                                (Tree.attribute "Type" rel)
-                                (Tree.attribute "Target" rel)
+                                (Scan.attribute "Id" tag)
+                                (Scan.attribute "Type" tag)
+                                (Scan.attribute "Target" tag)
                         )
             )
 

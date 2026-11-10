@@ -65,7 +65,7 @@ import Xlsx.Internal.Opc as Opc
 import Xlsx.Internal.SharedStrings as SharedStrings
 import Xlsx.Internal.SheetReader as SheetReader exposing (RawValue(..))
 import Xlsx.Internal.StylesReader as StylesReader exposing (CellFormat)
-import Xlsx.Internal.Xml.Tree as Tree
+import Xlsx.Internal.Xml.Scan as Scan
 import Xlsx.Ref as Ref exposing (Range, Ref)
 
 
@@ -157,7 +157,7 @@ openWorkbook archive =
             |> Result.andThen
                 (\path ->
                     Result.map2 Tuple.pair
-                        (readTree path archive)
+                        (readWorkbookXml path archive)
                         (readRelationships path archive)
                         |> Result.andThen (buildWorkbook archive path)
                 )
@@ -197,8 +197,8 @@ workbookPath archive =
             fallback
 
 
-buildWorkbook : Archive -> String -> ( Tree.Element, List Opc.Relationship ) -> Result Error Workbook
-buildWorkbook archive path ( root, rels ) =
+buildWorkbook : Archive -> String -> ( ( String, String ), List Opc.Relationship ) -> Result Error Workbook
+buildWorkbook archive path ( ( prefix, xml ), rels ) =
     let
         -- the related part, or the usual file next to the workbook when the
         -- relationship is missing (as calamine does)
@@ -213,16 +213,17 @@ buildWorkbook archive path ( root, rels ) =
             Dict.fromList (List.map (\r -> ( r.id, r )) rels)
 
         date1904 =
-            Tree.child "workbookPr" root
-                |> Maybe.andThen (Tree.attribute "date1904")
+            Scan.elements prefix "workbookPr" xml
+                |> List.head
+                |> Maybe.andThen (Scan.startTag >> Scan.attribute "date1904")
                 |> Maybe.map (\v -> v == "1" || String.toLower v == "true")
                 |> Maybe.withDefault False
 
         entries =
-            Tree.child "sheets" root
-                |> Maybe.map (Tree.children "sheet")
-                |> Maybe.withDefault []
-                |> List.filterMap (sheetEntry path byId)
+            Scan.section prefix "sheets" xml
+                |> Maybe.withDefault ""
+                |> Scan.elements prefix "sheet"
+                |> List.filterMap (Scan.startTag >> sheetEntry path byId)
     in
     Result.map2
         (\strings formats ->
@@ -239,18 +240,18 @@ buildWorkbook archive path ( root, rels ) =
                 , formats = formats
                 }
         )
-        (optionalPart (target "sharedStrings" "sharedStrings.xml") archive (SharedStrings.parse >> Ok) Array.empty)
+        (optionalPart (target "sharedStrings" "sharedStrings.xml") archive SharedStrings.parse Array.empty)
         (optionalPart (target "styles" "styles.xml") archive StylesReader.parse Array.empty)
 
 
-sheetEntry : String -> Dict String Opc.Relationship -> Tree.Element -> Maybe SheetEntry
-sheetEntry workbookPart byId el =
-    Tree.attribute "name" el
+sheetEntry : String -> Dict String Opc.Relationship -> String -> Maybe SheetEntry
+sheetEntry workbookPart byId tag =
+    Scan.attribute "name" tag
         |> Maybe.map
             (\sheetName ->
                 let
                     rel =
-                        Tree.attribute "id" el |> Maybe.andThen (\id -> Dict.get id byId)
+                        Scan.prefixedAttribute "id" tag |> Maybe.andThen (\id -> Dict.get id byId)
 
                     kind =
                         case Maybe.map .type_ rel of
@@ -273,7 +274,7 @@ sheetEntry workbookPart byId el =
                 { info =
                     { name = sheetName
                     , visibility =
-                        case Tree.attribute "state" el of
+                        case Scan.attribute "state" tag of
                             Just "hidden" ->
                                 Hidden
 
@@ -299,11 +300,7 @@ optionalPart path archive parse default =
             Err e
 
         Ok text ->
-            if Tree.hasDoctype text then
-                Err (InvalidXml { part = path, problem = "it has a DOCTYPE, which spreadsheets never use" })
-
-            else
-                parse text |> Result.mapError (\problem -> InvalidXml { part = path, problem = problem })
+            parse text |> Result.mapError (\problem -> InvalidXml { part = path, problem = problem })
 
 
 readText : String -> Archive -> Result Error String
@@ -323,10 +320,17 @@ readText path archive =
             )
 
 
-readTree : String -> Archive -> Result Error Tree.Element
-readTree path archive =
+{-| The workbook part and its namespace prefix.
+-}
+readWorkbookXml : String -> Archive -> Result Error ( String, String )
+readWorkbookXml path archive =
     readText path archive
-        |> Result.andThen (Tree.parse >> Result.mapError (\problem -> InvalidXml { part = path, problem = problem }))
+        |> Result.andThen
+            (\xml ->
+                Scan.document "workbook" xml
+                    |> Result.map (\prefix -> ( prefix, xml ))
+                    |> Result.mapError (\problem -> InvalidXml { part = path, problem = problem })
+            )
 
 
 readRelationships : String -> Archive -> Result Error (List Opc.Relationship)
@@ -441,7 +445,7 @@ parseSheet (Workbook wb) entry =
             readText path wb.archive
                 |> Result.andThen
                     (\xml ->
-                        if Tree.hasDoctype xml then
+                        if Scan.hasDoctype xml then
                             Err (InvalidXml { part = path, problem = "it has a DOCTYPE, which spreadsheets never use" })
 
                         else

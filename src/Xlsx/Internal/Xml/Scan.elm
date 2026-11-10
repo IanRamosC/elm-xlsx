@@ -1,23 +1,59 @@
 module Xlsx.Internal.Xml.Scan exposing
-    ( rootPrefix
-    , elements, startTag, attribute, prefixedAttribute, content
+    ( document, rootPrefix, hasDoctype
+    , elements, section, startTag, attribute, prefixedAttribute, content
     , textRuns, decodeText
     )
 
-{-| A fast, forgiving reader for the big, regular parts (worksheets and shared
-strings) where building a full DOM would be too slow. It works with
-`String.split`, which was 4× faster than `elm/parser` in the M0 benchmark.
+{-| A fast, forgiving reader for every XML part. It works with
+`String.split`, which was 4× faster than `elm/parser` in the M0 benchmark,
+and takes time proportional to the size of the part. (A DOM parser was tried
+for the small parts and took minutes on a 7 MB `styles.xml`.)
+
+It does not validate XML: it finds the elements and attributes it is asked
+for and ignores the rest. Documents with a `<!DOCTYPE` are refused, which
+rules out entity-expansion attacks.
 
 Every function takes the namespace prefix of the document (`""` or `"x:"`),
 found once with `rootPrefix`.
 
-@docs rootPrefix
-@docs elements, startTag, attribute, prefixedAttribute, content
+@docs document, rootPrefix, hasDoctype
+@docs elements, section, startTag, attribute, prefixedAttribute, content
 @docs textRuns, decodeText
 
 -}
 
 import Xlsx.Internal.Xml.Escape as Escape
+
+
+{-| Check a part before scanning it: refuse a DOCTYPE, and require a root
+element with the expected local name. Gives back the namespace prefix.
+
+    document "workbook" "<x:workbook xmlns:x=\"...\">...</x:workbook>" == Ok "x:"
+
+-}
+document : String -> String -> Result String String
+document expectedRoot xml =
+    if hasDoctype xml then
+        Err "it has a DOCTYPE, which spreadsheets never use"
+
+    else
+        let
+            prefix =
+                rootPrefix xml
+        in
+        case elements prefix expectedRoot xml of
+            _ :: _ ->
+                Ok prefix
+
+            [] ->
+                Err ("it has no <" ++ expectedRoot ++ "> element")
+
+
+{-| XML requires `DOCTYPE` in capitals, but some parsers accept any case.
+-}
+hasDoctype : String -> Bool
+hasDoctype xml =
+    String.contains "<!DOCTYPE" xml || String.contains "<!doctype" xml
 
 
 {-| The prefix of the root element, colon included: `"x:"` for
@@ -123,6 +159,44 @@ endsName chunk =
 
         Nothing ->
             False
+
+
+{-| The content of the first element `name`, between its start and end
+tags. `Nothing` if there is none; `Just ""` if it is empty or self-closing.
+
+    section "" "cellXfs" "<a><cellXfs count=\"1\"><xf/></cellXfs></a>" == Just "<xf/>"
+
+-}
+section : String -> String -> String -> Maybe String
+section prefix name xml =
+    case elements prefix name xml of
+        first :: rest ->
+            let
+                whole =
+                    String.join ("<" ++ prefix ++ name) (first :: rest)
+            in
+            case String.indexes ">" whole of
+                i :: _ ->
+                    if String.slice (i - 1) i whole == "/" then
+                        Just ""
+
+                    else
+                        let
+                            inner =
+                                String.dropLeft (i + 1) whole
+                        in
+                        case String.indexes ("</" ++ prefix ++ name ++ ">") inner of
+                            end :: _ ->
+                                Just (String.left end inner)
+
+                            [] ->
+                                Just inner
+
+                [] ->
+                    Nothing
+
+        [] ->
+            Nothing
 
 
 {-| The attributes part of an element chunk, up to (not including) the `>`

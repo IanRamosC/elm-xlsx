@@ -95,12 +95,12 @@ item s =
 {-| The strings of an `sst` part, in order. Rich text runs are joined into
 plain text; phonetic guides are left out.
 -}
-parse : String -> Array String
+parse : String -> Result String (Array String)
 parse xml =
-    let
-        prefix =
-            Scan.rootPrefix xml
-    in
-    Scan.elements prefix "si" xml
-        |> List.map (Scan.textRuns prefix)
-        |> Array.fromList
+    Scan.document "sst" xml
+        |> Result.map
+            (\prefix ->
+                Scan.elements prefix "si" xml
+                    |> List.map (Scan.textRuns prefix)
+                    |> Array.fromList
+            )

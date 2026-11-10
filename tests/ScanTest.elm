@@ -15,6 +15,18 @@ suite =
             [ test "no prefix" <| \_ -> Expect.equal "" (Scan.rootPrefix "<?xml version=\"1.0\"?>\n<worksheet xmlns=\"main\"/>")
             , test "x: prefix after a comment" <| \_ -> Expect.equal "x:" (Scan.rootPrefix "<?xml version=\"1.0\"?><!-- hi --><x:worksheet xmlns:x=\"main\"/>")
             ]
+        , describe "document"
+            [ test "prefix of the expected root" <| \_ -> Expect.equal (Ok "x:") (Scan.document "workbook" "<?xml version=\"1.0\"?><x:workbook xmlns:x=\"m\"><x:sheets/></x:workbook>")
+            , test "wrong root" <| \_ -> Expect.err (Scan.document "workbook" "<worksheet/>")
+            , test "DOCTYPE refused" <| \_ -> Expect.err (Scan.document "workbook" "<!DOCTYPE x [<!ENTITY a \"b\">]><workbook>&a;</workbook>")
+            ]
+        , describe "section"
+            [ test "content of the first match, not a longer name" <|
+                \_ -> Expect.equal (Just "<xf a=\"2\"/>") (Scan.section "" "cellXfs" "<cellStyleXfs><xf a=\"1\"/></cellStyleXfs><cellXfs count=\"1\"><xf a=\"2\"/></cellXfs>")
+            , test "self-closing" <| \_ -> Expect.equal (Just "") (Scan.section "" "sheets" "<sheets/>")
+            , test "absent" <| \_ -> Expect.equal Nothing (Scan.section "" "sheets" "<workbook/>")
+            , test "prefixed attribute" <| \_ -> Expect.equal (Just "rId3") (Scan.prefixedAttribute "id" " name=\"S\" sheetId=\"1\" ns0:id=\"rId3\"")
+            ]
         , describe "elements"
             [ test "splits and skips longer names" <|
                 \_ ->
@@ -54,13 +66,13 @@ suite =
                             ++ "<si><t/></si><si/>"
                             ++ "</sst>"
                         )
-                        |> Array.toList
-                        |> Expect.equal [ "Hello", "Bold and plain", "東京", "", "" ]
+                        |> Result.map Array.toList
+                        |> Expect.equal (Ok [ "Hello", "Bold and plain", "東京", "", "" ])
             , test "prefixed" <|
                 \_ ->
                     SharedStrings.parse "<x:sst xmlns:x=\"main\"><x:si><x:t>a &amp; b</x:t></x:si></x:sst>"
-                        |> Array.toList
-                        |> Expect.equal [ "a & b" ]
+                        |> Result.map Array.toList
+                        |> Expect.equal (Ok [ "a & b" ])
             , fuzz Fuzz.string "round-trips what the writer produces" <|
                 \s ->
                     SharedStrings.empty
@@ -68,7 +80,7 @@ suite =
                         |> Tuple.second
                         |> SharedStrings.toXml
                         |> SharedStrings.parse
-                        |> Array.toList
-                        |> Expect.equal [ String.replace "\u{000D}" "\n" (String.replace "\u{000D}\n" "\n" s) ]
+                        |> Result.map Array.toList
+                        |> Expect.equal (Ok [ String.replace "\u{000D}" "\n" (String.replace "\u{000D}\n" "\n" s) ])
             ]
         ]

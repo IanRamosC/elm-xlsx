@@ -12,6 +12,8 @@ What it relies on, and what it tolerates:
     as written by the .NET Open XML SDK.
   - Rows and cells without an `r` attribute follow the previous one, as
     some generators omit it.
+  - Rows and columns outside Excel's grid (past row 1,048,576 or column
+    XFD) are ignored.
   - `<dimension>` is ignored: it is often missing or wrong. The real extent
     is computed from the cells that have a value or a formula; cells that
     are only formatted are skipped.
@@ -25,6 +27,7 @@ What it relies on, and what it tolerates:
 
 import Array exposing (Array)
 import Xlsx.Internal.FutureFunctions as FutureFunctions
+import Xlsx.Internal.Limits as Limits
 import Xlsx.Internal.StylesReader as StylesReader exposing (CellFormat)
 import Xlsx.Internal.Xml.Scan as Scan
 import Xlsx.Ref as Ref
@@ -168,16 +171,22 @@ readRow context prefix chunk ( acc, previousRow, ( maxRow, maxColumn ) ) =
         hasCells =
             rowMaxColumn > 0
     in
-    ( newAcc
-    , rowNumber
-    , ( if hasCells then
-            max maxRow rowNumber
+    if rowNumber > Limits.maxRows || rowNumber < 1 then
+        -- outside Excel's grid: ignored, so a hostile row number cannot make
+        -- `rows` build millions of empty rows
+        ( acc, rowNumber, ( maxRow, maxColumn ) )
 
-        else
-            maxRow
-      , max maxColumn rowMaxColumn
-      )
-    )
+    else
+        ( newAcc
+        , rowNumber
+        , ( if hasCells then
+                max maxRow rowNumber
+
+            else
+                maxRow
+          , max maxColumn rowMaxColumn
+          )
+        )
 
 
 readCell : Context -> String -> Int -> String -> ( List RawCell, Int, Int ) -> ( List RawCell, Int, Int )
@@ -215,7 +224,10 @@ readCell context prefix rowNumber chunk ( acc, previousColumn, maxColumn ) =
         value =
             rawValue context prefix (Scan.attribute "t" tag) body
     in
-    if value == RawEmpty && formula == Nothing then
+    if column > Limits.maxColumns then
+        ( acc, column, maxColumn )
+
+    else if value == RawEmpty && formula == Nothing then
         -- a formatted but empty cell: nothing to read
         ( acc, column, maxColumn )
 

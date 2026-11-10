@@ -32,4 +32,9 @@ suite =
                 StylesReader.parse "<x:styleSheet xmlns:x=\"main\"><x:cellXfs><x:xf numFmtId=\"14\"/></x:cellXfs></x:styleSheet>"
                     |> Result.map Array.toList
                     |> Expect.equal (Ok [ { code = "m/d/yy", kind = NumFmt.Date } ])
+        , test "200k cell formats parse in linear time, without stack overflow" <|
+            \_ ->
+                StylesReader.parse ("<styleSheet><cellXfs>" ++ String.repeat 200000 "<xf numFmtId=\"14\" fontId=\"0\"/>" ++ "</cellXfs></styleSheet>")
+                    |> Result.map Array.length
+                    |> Expect.equal (Ok 200000)
         ]
