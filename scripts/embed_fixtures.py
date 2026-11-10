@@ -10,7 +10,7 @@ import os
 import re
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-DIRS = ["tests/fixtures/edge", "tests/fixtures/xlsxwriter"]
+DIRS = ["tests/fixtures/edge", "tests/fixtures/xlsxwriter", "tests/fixtures/security"]
 
 
 def elm_name(path):
@@ -23,7 +23,7 @@ def main():
     entries = []
     for d in DIRS:
         for f in sorted(os.listdir(os.path.join(ROOT, d))):
-            if f.endswith(".xlsx"):
+            if f.endswith((".xlsx", ".xlsb")):
                 with open(os.path.join(ROOT, d, f), "rb") as fh:
                     entries.append((elm_name(f), f"{d}/{f}", base64.b64encode(fh.read()).decode()))
     names = ", ".join(sorted(n for n, _, _ in entries))
