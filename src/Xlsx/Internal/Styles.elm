@@ -1,7 +1,7 @@
 module Xlsx.Internal.Styles exposing
     ( Registry, empty, register, registerLink
     , toXml
-    , defaultFont, hyperlinkStyle
+    , hyperlinkStyle
     )
 
 {-| Collect the distinct cell formats used in a workbook and write
@@ -16,7 +16,7 @@ Hyperlink cells also use Excel's built-in "Hyperlink" cell style
 
 @docs Registry, empty, register, registerLink
 @docs toXml
-@docs defaultFont, hyperlinkStyle
+@docs hyperlinkStyle
 
 -}
 

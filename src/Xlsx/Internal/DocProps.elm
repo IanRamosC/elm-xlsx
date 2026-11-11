@@ -1,9 +1,9 @@
-module Xlsx.Internal.DocProps exposing (core, app, iso8601)
+module Xlsx.Internal.DocProps exposing (core, app)
 
 {-| Document properties: `docProps/core.xml` (author, dates) and
 `docProps/app.xml` (application, sheet names).
 
-@docs core, app, iso8601
+@docs core, app
 
 -}
 

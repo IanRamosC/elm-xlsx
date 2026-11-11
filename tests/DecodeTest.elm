@@ -99,7 +99,7 @@ suite =
                         (\e ->
                             case e of
                                 Decode.DecodingErrors { errors } ->
-                                    List.map .problem errors |> List.take 1
+                                    List.take 1 errors |> List.map .problem
 
                                 _ ->
                                     []

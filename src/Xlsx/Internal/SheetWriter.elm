@@ -626,9 +626,6 @@ writeRow context row acc =
 
                             Nothing ->
                                 ""
-
-                    rowNumberText =
-                        String.fromInt acc.rowNumber
                 in
                 case ( rowAcc.first, rowAcc.last ) of
                     ( Just first, Just last ) ->

@@ -370,19 +370,30 @@ rowNumber =
 -- COMBINING
 
 
-{-| -}
+{-| Change the decoded value.
+
+    Decode.map String.toUpper (Decode.field "Code" Decode.string)
+
+-}
 map : (a -> b) -> Decoder a -> Decoder b
 map f (Decoder decode) =
     Decoder (decode >> Result.map f)
 
 
-{-| -}
+{-| Decode two things from the same row and combine them.
+
+    Decode.map2 Tuple.pair
+        (Decode.field "Name" Decode.string)
+        (Decode.field "Age" Decode.int)
+
+-}
 map2 : (a -> b -> c) -> Decoder a -> Decoder b -> Decoder c
 map2 f (Decoder a) (Decoder b) =
     Decoder (\state -> Result.map2 f (a state) (b state))
 
 
-{-| -}
+{-| Like [`map2`](#map2), for three things.
+-}
 map3 : (a -> b -> c -> d) -> Decoder a -> Decoder b -> Decoder c -> Decoder d
 map3 f (Decoder a) (Decoder b) (Decoder c) =
     Decoder (\state -> Result.map3 f (a state) (b state) (c state))
@@ -395,7 +406,18 @@ into =
     succeed
 
 
-{-| -}
+{-| Add the next field to a decoder started with [`into`](#into):
+
+    type alias Person =
+        { name : String, age : Int }
+
+    person : Decoder Person
+    person =
+        Decode.into Person
+            |> Decode.pipeline (Decode.field "Name" Decode.string)
+            |> Decode.pipeline (Decode.field "Age" Decode.int)
+
+-}
 pipeline : Decoder a -> Decoder (a -> b) -> Decoder b
 pipeline next fn =
     map2 (\f a -> f a) fn next
@@ -459,7 +481,10 @@ failureProblem failure =
             Nothing
 
 
-{-| -}
+{-| Choose the next decoder based on a decoded value, for example to
+validate it (see [`fromResult`](#fromResult)) or to read a row
+differently depending on a "Type" column.
+-}
 andThen : (a -> Decoder b) -> Decoder a -> Decoder b
 andThen f (Decoder decode) =
     Decoder
@@ -476,7 +501,8 @@ andThen f (Decoder decode) =
         )
 
 
-{-| -}
+{-| A decoder that always gives this value and reads nothing.
+-}
 succeed : a -> Decoder a
 succeed a =
     Decoder (\_ -> Ok a)
@@ -514,7 +540,12 @@ fromResult result =
             fail message
 
 
-{-| -}
+{-| Turn a `Maybe` into a decoder, failing with the message on `Nothing`:
+
+    Decode.string
+        |> Decode.andThen (\s -> Decode.fromMaybe "not a known country" (Dict.get s countries))
+
+-}
 fromMaybe : String -> Maybe a -> Decoder a
 fromMaybe message maybe =
     case maybe of

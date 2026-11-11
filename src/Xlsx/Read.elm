@@ -38,12 +38,12 @@ calculate (including [`Xlsx.Write`](Xlsx-Write) without
 @docs SheetInfo, Visibility, SheetKind, sheets, sheetNames
 
 
-# Sheets
+# Opening a sheet
 
 @docs Sheet, sheet, firstSheet, name
 
 
-# Cells
+# Cell values
 
 @docs Cell, CellValue, rows, cells, cell, dimensions, merges
 
@@ -208,25 +208,26 @@ buildWorkbook archive path ( ( prefix, xml ), rels ) =
                 |> List.head
                 |> Maybe.map (.target >> Opc.resolveTarget path)
                 |> Maybe.withDefault (Opc.resolveTarget path defaultName)
-
-        byId =
-            Dict.fromList (List.map (\r -> ( r.id, r )) rels)
-
-        date1904 =
-            Scan.elements prefix "workbookPr" xml
-                |> List.head
-                |> Maybe.andThen (Scan.startTag >> Scan.attribute "date1904")
-                |> Maybe.map (\v -> v == "1" || String.toLower v == "true")
-                |> Maybe.withDefault False
-
-        entries =
-            Scan.section prefix "sheets" xml
-                |> Maybe.withDefault ""
-                |> Scan.elements prefix "sheet"
-                |> List.filterMap (Scan.startTag >> sheetEntry path byId)
     in
     Result.map2
         (\strings formats ->
+            let
+                byId =
+                    Dict.fromList (List.map (\r -> ( r.id, r )) rels)
+
+                date1904 =
+                    Scan.elements prefix "workbookPr" xml
+                        |> List.head
+                        |> Maybe.andThen (Scan.startTag >> Scan.attribute "date1904")
+                        |> Maybe.map (\v -> v == "1" || String.toLower v == "true")
+                        |> Maybe.withDefault False
+
+                entries =
+                    Scan.section prefix "sheets" xml
+                        |> Maybe.withDefault ""
+                        |> Scan.elements prefix "sheet"
+                        |> List.filterMap (Scan.startTag >> sheetEntry path byId)
+            in
             Workbook
                 { archive = archive
                 , sheets = entries
@@ -478,7 +479,7 @@ parseSheet (Workbook wb) entry =
         ( Worksheet, Nothing ) ->
             Err (MissingPart ("the part for sheet " ++ entry.info.name))
 
-        ( _, _ ) ->
+        _ ->
             Err (UnsupportedFormat ("\"" ++ entry.info.name ++ "\" is not a worksheet, so it has no cells."))
 
 

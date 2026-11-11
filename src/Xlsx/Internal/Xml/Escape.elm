@@ -244,12 +244,13 @@ unescapeChunk chunk =
             let
                 entity =
                     String.left end chunk
-
-                rest =
-                    String.dropLeft (end + 1) chunk
             in
             case entityChar entity of
                 Just decoded ->
+                    let
+                        rest =
+                            String.dropLeft (end + 1) chunk
+                    in
                     decoded ++ rest
 
                 Nothing ->

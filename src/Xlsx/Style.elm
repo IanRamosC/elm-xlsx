@@ -104,13 +104,15 @@ update f (Model.Style data) =
 -- FONT
 
 
-{-| -}
+{-| Bold text.
+-}
 bold : Style -> Style
 bold =
     update (\s -> { s | bold = Just True })
 
 
-{-| -}
+{-| Italic text.
+-}
 italic : Style -> Style
 italic =
     update (\s -> { s | italic = Just True })
@@ -123,7 +125,8 @@ underline =
     update (\s -> { s | underline = Just True })
 
 
-{-| -}
+{-| Text with a line through it.
+-}
 strikethrough : Style -> Style
 strikethrough =
     update (\s -> { s | strikethrough = Just True })
@@ -136,7 +139,11 @@ fontSize size =
     update (\s -> { s | fontSize = Just size })
 
 
-{-| -}
+{-| The text colour.
+
+    Style.none |> Style.fontColor Style.red
+
+-}
 fontColor : Color -> Style -> Style
 fontColor (Color color) =
     update (\s -> { s | fontColor = Just color })
@@ -224,25 +231,32 @@ border style color =
         )
 
 
-{-| -}
+{-| A border above the cell.
+
+    Style.none |> Style.borderTop Style.Thin Style.gray
+
+-}
 borderTop : BorderStyle -> Color -> Style -> Style
 borderTop style color =
     update (\s -> { s | borderTop = toBorder style color })
 
 
-{-| -}
+{-| A border below the cell.
+-}
 borderBottom : BorderStyle -> Color -> Style -> Style
 borderBottom style color =
     update (\s -> { s | borderBottom = toBorder style color })
 
 
-{-| -}
+{-| A border on the left of the cell.
+-}
 borderLeft : BorderStyle -> Color -> Style -> Style
 borderLeft style color =
     update (\s -> { s | borderLeft = toBorder style color })
 
 
-{-| -}
+{-| A border on the right of the cell.
+-}
 borderRight : BorderStyle -> Color -> Style -> Style
 borderRight style color =
     update (\s -> { s | borderRight = toBorder style color })
@@ -270,7 +284,11 @@ type Vertical
     | Bottom
 
 
-{-| -}
+{-| Align the content horizontally.
+
+    Style.none |> Style.horizontal Style.Center
+
+-}
 horizontal : Horizontal -> Style -> Style
 horizontal h =
     update
@@ -295,7 +313,8 @@ horizontal h =
         )
 
 
-{-| -}
+{-| Align the content vertically.
+-}
 vertical : Vertical -> Style -> Style
 vertical v =
     update
@@ -518,13 +537,15 @@ hexByte n =
     digit (v // 16) ++ digit (modBy 16 v)
 
 
-{-| -}
+{-| `#000000`
+-}
 black : Color
 black =
     rgb 0 0 0
 
 
-{-| -}
+{-| `#FFFFFF`
+-}
 white : Color
 white =
     rgb 255 255 255
@@ -537,25 +558,29 @@ gray =
     rgb 191 191 191
 
 
-{-| -}
+{-| `#FF0000`
+-}
 red : Color
 red =
     rgb 255 0 0
 
 
-{-| -}
+{-| Excel's green, `#00B050`.
+-}
 green : Color
 green =
     rgb 0 176 80
 
 
-{-| -}
+{-| Excel's blue, `#0070C0`.
+-}
 blue : Color
 blue =
     rgb 0 112 192
 
 
-{-| -}
+{-| `#FFFF00`
+-}
 yellow : Color
 yellow =
     rgb 255 255 0

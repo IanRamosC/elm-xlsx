@@ -153,13 +153,15 @@ type Property
     = Property (Model.Properties -> Model.Properties)
 
 
-{-| -}
+{-| The document title, shown in File › Info and by file browsers.
+-}
 title : String -> Property
 title v =
     Property (\p -> { p | title = v })
 
 
-{-| -}
+{-| The document subject.
+-}
 subject : String -> Property
 subject v =
     Property (\p -> { p | subject = v })
@@ -172,19 +174,22 @@ author v =
     Property (\p -> { p | author = v })
 
 
-{-| -}
+{-| The author's manager.
+-}
 manager : String -> Property
 manager v =
     Property (\p -> { p | manager = v })
 
 
-{-| -}
+{-| The company the document belongs to.
+-}
 company : String -> Property
 company v =
     Property (\p -> { p | company = v })
 
 
-{-| -}
+{-| A category, such as `"Reports"`.
+-}
 category : String -> Property
 category v =
     Property (\p -> { p | category = v })

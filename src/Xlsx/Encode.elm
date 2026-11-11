@@ -79,25 +79,32 @@ column header toCell =
     Column { header = header, toCell = toCell, width = Nothing, style = Nothing }
 
 
-{-| -}
+{-| A text column.
+
+    Encode.string "Name" .name
+
+-}
 string : String -> (a -> String) -> Column a
 string header get =
     column header (get >> Write.string)
 
 
-{-| -}
+{-| A number column.
+-}
 float : String -> (a -> Float) -> Column a
 float header get =
     column header (get >> Write.float)
 
 
-{-| -}
+{-| A whole number column.
+-}
 int : String -> (a -> Int) -> Column a
 int header get =
     column header (get >> Write.int)
 
 
-{-| -}
+{-| A `TRUE`/`FALSE` column.
+-}
 bool : String -> (a -> Bool) -> Column a
 bool header get =
     column header (get >> Write.bool)
@@ -111,7 +118,9 @@ date header get =
     column header (get >> Write.date)
 
 
-{-| -}
+{-| A date and time column, shown as `yyyy-mm-dd hh:mm:ss` unless you
+`style` it with another number format.
+-}
 dateTime : String -> (a -> DateTime) -> Column a
 dateTime header get =
     column header (get >> Write.dateTime)
@@ -196,9 +205,6 @@ tableWith options name columns records =
         dataCells =
             List.map (\record -> List.map (\c -> styleUnder c.style (c.toCell record)) specs) records
 
-        lastRef =
-            { column = max 1 (List.length specs), row = List.length records + 1 }
-
         withColumn ( index, c ) sheet =
             let
                 fitted =
@@ -220,6 +226,10 @@ tableWith options name columns records =
                 identity
            )
         |> (if options.autoFilter && not (List.isEmpty specs) then
+                let
+                    lastRef =
+                        { column = max 1 (List.length specs), row = List.length records + 1 }
+                in
                 Write.autoFilter (Ref.rangeToString (Ref.range { column = 1, row = 1 } lastRef))
 
             else

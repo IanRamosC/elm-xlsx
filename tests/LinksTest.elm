@@ -5,7 +5,7 @@ import Helpers exposing (contains, containsAll, part, partNames, writeOk)
 import Test exposing (Test, describe, test)
 import Time
 import Xlsx.Internal.SheetWriter as SheetWriter
-import Xlsx.Read as Read exposing (CellValue(..))
+import Xlsx.Read as Read
 import Xlsx.Style as Style
 import Xlsx.Write as W
 
@@ -25,7 +25,7 @@ readBack wb =
     W.toBytes { created = Time.millisToPosix 0, compression = W.Store } wb
         |> Result.mapError (List.map W.problemToString >> String.join "; ")
         |> Result.andThen (Read.read >> Result.andThen Read.firstSheet >> Result.mapError Read.errorToString)
-        |> Result.map (Read.cells >> List.map (\( ref, c ) -> ( Debug.toString c.value, c.hyperlink )))
+        |> Result.map (Read.cells >> List.map (\( _, c ) -> ( Debug.toString c.value, c.hyperlink )))
 
 
 links : W.Workbook

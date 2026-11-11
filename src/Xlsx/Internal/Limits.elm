@@ -1,15 +1,13 @@
 module Xlsx.Internal.Limits exposing
-    ( maxRows, maxColumns, maxTextLength, maxFormulaLength, maxUrlLength, maxHyperlinks
-    , checkWorkbook, checkSheetName, checkCell
-    , errorCodes
+    ( maxRows, maxColumns, maxUrlLength, maxHyperlinks
+    , checkWorkbook, checkCell
     )
 
 {-| Excel's limits, and the checks `Xlsx.Write` runs before writing. Each
 check returns every problem it finds instead of stopping at the first.
 
-@docs maxRows, maxColumns, maxTextLength, maxFormulaLength, maxUrlLength, maxHyperlinks
-@docs checkWorkbook, checkSheetName, checkCell
-@docs errorCodes
+@docs maxRows, maxColumns, maxUrlLength, maxHyperlinks
+@docs checkWorkbook, checkCell
 
 -}
 
@@ -126,9 +124,6 @@ checkSheetName name =
     let
         problem message =
             [ { sheet = Just name, cell = Nothing, message = message } ]
-
-        forbidden =
-            String.filter (\c -> List.member c [ ':', '\\', '/', '?', '*', '[', ']' ]) name
     in
     if String.isEmpty name then
         problem "A sheet name cannot be empty."
@@ -136,17 +131,22 @@ checkSheetName name =
     else if String.length name > 31 then
         problem "A sheet name can have at most 31 characters."
 
-    else if not (String.isEmpty forbidden) then
-        problem ("A sheet name cannot contain " ++ String.join " " (List.map String.fromChar (uniqueChars forbidden)) ++ ".")
-
-    else if String.startsWith "'" name || String.endsWith "'" name then
-        problem "A sheet name cannot start or end with an apostrophe."
-
-    else if String.toLower name == "history" then
-        problem "\"History\" is reserved by Excel."
-
     else
-        []
+        let
+            forbidden =
+                String.filter (\c -> List.member c [ ':', '\\', '/', '?', '*', '[', ']' ]) name
+        in
+        if not (String.isEmpty forbidden) then
+            problem ("A sheet name cannot contain " ++ String.join " " (List.map String.fromChar (uniqueChars forbidden)) ++ ".")
+
+        else if String.startsWith "'" name || String.endsWith "'" name then
+            problem "A sheet name cannot start or end with an apostrophe."
+
+        else if String.toLower name == "history" then
+            problem "\"History\" is reserved by Excel."
+
+        else
+            []
 
 
 uniqueChars : String -> List Char

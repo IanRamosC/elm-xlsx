@@ -163,13 +163,6 @@ readRow context prefix chunk ( acc, previousRow, ( maxRow, maxColumn ) ) =
                 |> Scan.attribute "r"
                 |> Maybe.andThen String.toInt
                 |> Maybe.withDefault (previousRow + 1)
-
-        ( newAcc, _, rowMaxColumn ) =
-            Scan.elements prefix "c" chunk
-                |> List.foldl (readCell context prefix rowNumber) ( acc, 0, 0 )
-
-        hasCells =
-            rowMaxColumn > 0
     in
     if rowNumber > Limits.maxRows || rowNumber < 1 then
         -- outside Excel's grid: ignored, so a hostile row number cannot make
@@ -177,6 +170,14 @@ readRow context prefix chunk ( acc, previousRow, ( maxRow, maxColumn ) ) =
         ( acc, rowNumber, ( maxRow, maxColumn ) )
 
     else
+        let
+            ( newAcc, _, rowMaxColumn ) =
+                Scan.elements prefix "c" chunk
+                    |> List.foldl (readCell context prefix rowNumber) ( acc, 0, 0 )
+
+            hasCells =
+                rowMaxColumn > 0
+        in
         ( newAcc
         , rowNumber
         , ( if hasCells then
@@ -200,48 +201,51 @@ readCell context prefix rowNumber chunk ( acc, previousColumn, maxColumn ) =
                 |> Maybe.andThen Ref.fromString
                 |> Maybe.map .column
                 |> Maybe.withDefault (previousColumn + 1)
-
-        body =
-            cellBody chunk
-
-        format =
-            Scan.attribute "s" tag
-                |> Maybe.andThen String.toInt
-                |> Maybe.andThen (\i -> Array.get i context.formats)
-                |> Maybe.withDefault StylesReader.general
-
-        formula =
-            Scan.content prefix "f" body
-                |> Maybe.andThen
-                    (\raw ->
-                        if String.isEmpty raw then
-                            Nothing
-
-                        else
-                            Just (FutureFunctions.removePrefixes (Scan.decodeText raw))
-                    )
-
-        value =
-            rawValue context prefix (Scan.attribute "t" tag) body
     in
     if column > Limits.maxColumns then
         ( acc, column, maxColumn )
 
-    else if value == RawEmpty && formula == Nothing then
-        -- a formatted but empty cell: nothing to read
-        ( acc, column, maxColumn )
-
     else
-        ( { row = rowNumber
-          , column = column
-          , value = value
-          , formula = formula
-          , format = format
-          }
-            :: acc
-        , column
-        , max maxColumn column
-        )
+        let
+            body =
+                cellBody chunk
+
+            formula =
+                Scan.content prefix "f" body
+                    |> Maybe.andThen
+                        (\raw ->
+                            if String.isEmpty raw then
+                                Nothing
+
+                            else
+                                Just (FutureFunctions.removePrefixes (Scan.decodeText raw))
+                        )
+
+            value =
+                rawValue context prefix (Scan.attribute "t" tag) body
+        in
+        if value == RawEmpty && formula == Nothing then
+            -- a formatted but empty cell: nothing to read
+            ( acc, column, maxColumn )
+
+        else
+            let
+                format =
+                    Scan.attribute "s" tag
+                        |> Maybe.andThen String.toInt
+                        |> Maybe.andThen (\i -> Array.get i context.formats)
+                        |> Maybe.withDefault StylesReader.general
+            in
+            ( { row = rowNumber
+              , column = column
+              , value = value
+              , formula = formula
+              , format = format
+              }
+                :: acc
+            , column
+            , max maxColumn column
+            )
 
 
 {-| The part of a cell chunk after its start tag; empty for `<c .../>`.

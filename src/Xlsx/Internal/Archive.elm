@@ -69,22 +69,23 @@ open limits bytes =
 
                         total =
                             List.foldl (\e acc -> acc + Entry.extractedSize e) 0 entries
-
-                        suspicious =
-                            List.filter
-                                (\e ->
-                                    Entry.extractedSize e
-                                        >= ratioCheckFrom
-                                        && toFloat (Entry.compressedSize e)
-                                        / toFloat (Entry.extractedSize e)
-                                        < limits.minRatio
-                                )
-                                entries
                     in
                     if total > limits.maxUncompressedBytes then
                         Err (TooLarge ("The file would take " ++ megabytes total ++ " uncompressed, more than the limit of " ++ megabytes limits.maxUncompressedBytes ++ "."))
 
                     else
+                        let
+                            suspicious =
+                                List.filter
+                                    (\e ->
+                                        Entry.extractedSize e
+                                            >= ratioCheckFrom
+                                            && toFloat (Entry.compressedSize e)
+                                            / toFloat (Entry.extractedSize e)
+                                            < limits.minRatio
+                                    )
+                                    entries
+                        in
                         case suspicious of
                             e :: _ ->
                                 Err (TooLarge ("The part " ++ Entry.path e ++ " compresses suspiciously well (" ++ megabytes (Entry.extractedSize e) ++ " from " ++ String.fromInt (Entry.compressedSize e) ++ " bytes); it may be a zip bomb."))
