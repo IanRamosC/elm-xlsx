@@ -9,3 +9,5 @@ benchmarks/**/*.html
 .DS_Store
 .venv/
 scripts/**/elm.js
+examples/index.html
+examples/elm-stuff/
