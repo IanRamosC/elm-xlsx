@@ -46,8 +46,3 @@ published version will be 1.0.0.
   with sheet, row, column letter, header and the value found.
 - `Xlsx.Date`: Excel serial numbers in the 1900 and 1904 date systems.
 - `Xlsx.Ref`: `A1` references, ranges and sheet-name quoting.
-
-### Fixed
-
-- Writing text that ends in an emoji no longer hangs (`String.right` split
-  the surrogate pair, and `String.any` never returns on a lone surrogate).
