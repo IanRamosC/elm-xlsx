@@ -158,7 +158,7 @@ Sheet "People", row 7, column C ("Age"): expected a whole number, found the text
 
 ## Things to know
 
-- **Formulas are not calculated.** When reading, a formula cell's value is the result that the program which saved the file stored in it. When writing, Excel, Google Sheets, LibreOffice and Numbers recalculate formulas when they open the file. Other readers only see a cached result if you pass one with `Write.formulaWithResult`.
+- **Formulas are not calculated.** When reading, a formula cell's value is the result that the program which saved the file stored in it. When writing, Excel, Google Sheets, LibreOffice and Numbers recalculate formulas when they open the file. Other readers only see a cached result if you pass one with `Write.formulaWithResult`. Numbers can't recalculate a reference to a sheet whose name contains an apostrophe, such as `'Bob''s Sheet'!A1`, even though the file is valid. It warns, then shows the cached result, or 0 if there isn't one.
 - **Dates are numbers with a date format**, as they are in Excel. When reading, a number is a `DateValue` or a `DateTimeValue` only if its format shows a date. Both the 1900 and the 1904 date systems are supported. `Xlsx.Date` converts between dates and Excel's serial numbers.
 - **`rows` or `cells`.** `Read.rows` fills gaps with `Empty`, which is what you want for tables. For sparse sheets, such as a single cell at `ZZ100000`, use `Read.cells`, which lists only the cells that exist.
 - **Limits.** Excel's own limits are enforced when writing: 1,048,576 rows, 16,384 columns and 32,767 characters per cell. When reading, files bigger than 256 MB uncompressed and parts that look like zip bombs are refused. `Read.readWith` changes these limits.
