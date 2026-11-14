@@ -224,7 +224,7 @@ types =
             , [ ( W.formulaWithResult "SUM(B1:C1)" (W.float -38.85841), Just (F "SUM(B1:C1)" (N -38.85841)) )
               , ( W.formulaWithResult "=A1&\"!\"" (W.string "text!"), Just (F "A1&\"!\"" (S "text!")) )
               , ( W.formulaWithResult "A2" (W.bool True), Just (F "A2" (B True)) )
-              , ( W.formula "XLOOKUP(1,B1:C1,B1:C1)", Just (FNoValue "_xlfn.XLOOKUP(1,B1:C1,B1:C1)") )
+              , ( W.formula "XLOOKUP(-42,B1:C1,B1:C1)", Just (FNoValue "_xlfn.XLOOKUP(-42,B1:C1,B1:C1)") )
               ]
             ]
           )
