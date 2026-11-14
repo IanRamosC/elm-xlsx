@@ -1,5 +1,8 @@
 # elm-xlsx
 
+[![CI](https://github.com/IanRamosC/elm-xlsx/actions/workflows/ci.yml/badge.svg)](https://github.com/IanRamosC/elm-xlsx/actions/workflows/ci.yml)
+[![Elm package](https://img.shields.io/elm-package/v/ianramosc/elm-xlsx)](https://package.elm-lang.org/packages/ianramosc/elm-xlsx/latest/)
+
 Read and write Excel `.xlsx` files in pure Elm. Bytes go in and bytes come out, with no ports and no JavaScript.
 
 - **Write** workbooks with several sheets, styles, number formats, dates, formulas, hyperlinks, merged cells, frozen panes and filters.
@@ -167,7 +170,7 @@ Sheet "People", row 7, column C ("Age"): expected a whole number, found the text
 
 ## Example app
 
-[`examples/`](https://github.com/ianramosc/elm-xlsx/tree/main/examples) has a small app that opens a file, shows a sheet as a table, decodes it, and exports it again.
+[`examples/`](https://github.com/IanRamosC/elm-xlsx/tree/main/examples) has a small app that opens a file, shows a sheet as a table, decodes it, and exports it again.
 
 ## License
 

@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (Elm ${{ matrix.elm }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - elm: 0.19.1
+            elm-npm: 0.19.1-6
+            elm-test-npm: 0.19.1-revision17
+          - elm: 0.19.3
+            elm-npm: 0.19.3-0
+            elm-test-npm: 0.19.3-0
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.elm
+          key: elm-${{ matrix.elm }}-${{ hashFiles('elm.json', 'examples/elm.json') }}
+          restore-keys: elm-${{ matrix.elm }}-
+
+      - name: Install Elm tools
+        run: npm install --global elm@${{ matrix.elm-npm }} elm-test@${{ matrix.elm-test-npm }}
+
+      - name: Tests
+        run: elm-test --compiler "$(which elm)"
+
+      - name: Documentation
+        run: elm make --docs=docs.json
+
+      - name: Example app and README samples
+        if: matrix.elm == '0.19.1'
+        working-directory: examples
+        run: |
+          elm make src/Main.elm --output=/dev/null
+          elm make src/Readme.elm --output=/dev/null
+
+  lint:
+    name: Format and review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.elm
+            elm-stuff
+          key: lint-${{ hashFiles('elm.json', 'review/elm.json') }}
+          restore-keys: lint-
+
+      - name: Install Elm tools
+        run: npm install --global elm@0.19.3-0 elm-format@0.8.8 elm-review@2.13.5
+
+      - name: Formatting
+        run: elm-format --validate src tests examples/src review/src
+
+      - name: elm-review
+        run: elm-review --compiler "$(which elm)"
