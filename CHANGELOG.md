@@ -20,7 +20,8 @@ published version will be 1.0.0.
 - `Xlsx.Style`: fonts (bold, italic, underline, strikethrough, size, color,
   name), solid fills, borders, alignment (horizontal, vertical, wrap, indent,
   rotation), number formats with helpers (`currency`, `percent`,
-  `thousands`, ...) and colors (`rgb`, `hex`). Styles layer field by field.
+  `thousands`, ...; `currency "$"` is written as US dollars so every
+  program shows `$`) and colors (`rgb`, `hex`). Styles layer field by field.
 - `Xlsx.Write`: hyperlinks (`linkTo`, `linkToCell`, `hyperlink`) using
   Excel's built-in Hyperlink style, and document properties
   (`withProperties` with `title`, `author`, `company`, ...).

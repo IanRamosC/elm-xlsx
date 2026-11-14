@@ -107,12 +107,12 @@ suite =
                         [ W.int 1 |> W.withStyle (Style.none |> Style.numberFormat (Style.currency "$" 2))
                         , W.int 1 |> W.withStyle (Style.none |> Style.numberFormat "0.0 \"kg\"")
                         ]
-                        |> contains styles "<numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"&quot;$&quot;#,##0.00\"/><numFmt numFmtId=\"165\" formatCode=\"0.0 &quot;kg&quot;\"/></numFmts>"
+                        |> contains styles "<numFmts count=\"2\"><numFmt numFmtId=\"164\" formatCode=\"[$$-409]#,##0.00\"/><numFmt numFmtId=\"165\" formatCode=\"0.0 &quot;kg&quot;\"/></numFmts>"
             , test "helpers" <|
                 \_ ->
                     Expect.equal
-                        [ "0", "0.00", "#,##0", "#,##0.0", "0%", "0.00%", "\"€\"#,##0", "0.00E+00", "@" ]
-                        [ Style.integer, Style.decimal 2, Style.thousands 0, Style.thousands 1, Style.percent 0, Style.percent 2, Style.currency "€" 0, Style.scientific 2, Style.text ]
+                        [ "0", "0.00", "#,##0", "#,##0.0", "0%", "0.00%", "\"€\"#,##0", "[$$-409]#,##0.00", "0.00E+00", "@" ]
+                        [ Style.integer, Style.decimal 2, Style.thousands 0, Style.thousands 1, Style.percent 0, Style.percent 2, Style.currency "€" 0, Style.currency "$" 2, Style.scientific 2, Style.text ]
             ]
         , describe "layering"
             [ test "later styles win, unset settings are kept" <|

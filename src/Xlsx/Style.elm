@@ -416,14 +416,26 @@ percent places =
 {-| A currency symbol before the amount, with thousands separators and
 decimal places. Negative amounts get a minus sign.
 
-    currency "$" 2 == "\"$\"#,##0.00"
+    currency "$" 2 == "[$$-409]#,##0.00"
 
     currency "€" 0 == "\"€\"#,##0"
+
+`"$"` is written as US dollars (`[$$-409]`). Some programs, such as Numbers,
+show a plain `$` in the reader's own currency, like R$ in Brazil. Other
+symbols are written as they are.
 
 -}
 currency : String -> Int -> String
 currency symbol places =
-    "\"" ++ String.replace "\"" "" symbol ++ "\"" ++ thousands places
+    let
+        prefix =
+            if symbol == "$" then
+                "[$$-409]"
+
+            else
+                "\"" ++ String.replace "\"" "" symbol ++ "\""
+    in
+    prefix ++ thousands places
 
 
 {-| Scientific notation with decimal places: `scientific 2` is `0.00E+00`.

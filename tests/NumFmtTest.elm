@@ -57,8 +57,8 @@ suite =
         , describe "classify"
             [ test "kinds" <|
                 \_ ->
-                    List.map NumFmt.classify [ "General", "0.00", "yyyy-mm-dd", "d-mmm-yy", "m/d/yy h:mm", "h:mm AM/PM", "mm:ss", "[h]:mm:ss", "[$-409]mmmm d, yyyy", "[Red]0.00", "0.00\"d\"", "hh:mm;@" ]
-                        |> Expect.equal [ NumFmt.Plain, NumFmt.Plain, NumFmt.Date, NumFmt.Date, NumFmt.DateTime, NumFmt.DateTime, NumFmt.DateTime, NumFmt.Elapsed, NumFmt.Date, NumFmt.Plain, NumFmt.Plain, NumFmt.DateTime ]
+                    List.map NumFmt.classify [ "General", "0.00", "yyyy-mm-dd", "d-mmm-yy", "m/d/yy h:mm", "h:mm AM/PM", "mm:ss", "[h]:mm:ss", "[$-409]mmmm d, yyyy", "[Red]0.00", "0.00\"d\"", "hh:mm;@", "[$$-409]#,##0.00", "[$€-2] #,##0.00" ]
+                        |> Expect.equal [ NumFmt.Plain, NumFmt.Plain, NumFmt.Date, NumFmt.Date, NumFmt.DateTime, NumFmt.DateTime, NumFmt.DateTime, NumFmt.Elapsed, NumFmt.Date, NumFmt.Plain, NumFmt.Plain, NumFmt.DateTime, NumFmt.Plain, NumFmt.Plain ]
             , test "ids" <|
                 \_ ->
                     List.map NumFmt.classifyId [ 0, 14, 22, 46, 30, 49 ]
